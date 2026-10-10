@@ -40,3 +40,51 @@ Content-Type: application/json
 
 ### Should fail: goal that does not exist
 GET {{baseUrl}}/api/goals/00000000-0000-0000-0000-000000000099
+
+
+@taskId = 636abda3-1b6a-4d4d-b24e-c463759a9cfd
+
+### Future task: create with size only
+POST {{baseUrl}}/api/future-tasks
+Content-Type: application/json
+
+{
+  "title": "Research report",
+  "type": "assignment",
+  "dueDate": "2026-10-20",
+  "weight": 15,
+  "size": "large",
+  "materials": "12 pages, 5 sources"
+}
+
+### Future task: create with exact hours
+POST {{baseUrl}}/api/future-tasks
+Content-Type: application/json
+
+{
+  "title": "Math midterm",
+  "type": "exam",
+  "dueDate": "2026-10-15",
+  "weight": 25,
+  "size": "large",
+  "estimatedHours": 8,
+  "materials": "Chapters 3 to 6"
+}
+
+### Future task: list
+GET {{baseUrl}}/api/future-tasks
+
+### Future task: mark done
+PUT {{baseUrl}}/api/future-tasks/{{taskId}}
+Content-Type: application/json
+
+{
+  "title": "Math midterm",
+  "type": "exam",
+  "dueDate": "2026-10-15",
+  "weight": 25,
+  "size": "large",
+  "estimatedHours": 8,
+  "materials": "Chapters 3 to 6",
+  "status": "done"
+}
