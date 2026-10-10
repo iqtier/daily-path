@@ -22,6 +22,102 @@ namespace DailyPath.Api.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("DailyPath.Api.Models.DailyPlan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("BonusRequestCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("GeneratedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("HoursAvailable")
+                        .HasPrecision(4, 2)
+                        .HasColumnType("numeric(4,2)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Date")
+                        .IsUnique();
+
+                    b.ToTable("DailyPlans");
+                });
+
+            modelBuilder.Entity("DailyPath.Api.Models.DailyTask", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DailyPlanId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("EstimatedMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("FutureTaskId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("GoalId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsBonus")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsCompleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("TimeSpentSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FutureTaskId");
+
+                    b.HasIndex("GoalId");
+
+                    b.HasIndex("DailyPlanId", "Order")
+                        .IsUnique();
+
+                    b.ToTable("DailyTasks", t =>
+                        {
+                            t.HasCheckConstraint("CK_DailyTask_SingleLink", "(\"GoalId\" IS NULL) <> (\"FutureTaskId\" IS NULL)");
+                        });
+                });
+
             modelBuilder.Entity("DailyPath.Api.Models.FutureTask", b =>
                 {
                     b.Property<Guid>("Id")
@@ -109,6 +205,36 @@ namespace DailyPath.Api.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Goals");
+                });
+
+            modelBuilder.Entity("DailyPath.Api.Models.DailyTask", b =>
+                {
+                    b.HasOne("DailyPath.Api.Models.DailyPlan", "DailyPlan")
+                        .WithMany("Tasks")
+                        .HasForeignKey("DailyPlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("DailyPath.Api.Models.FutureTask", "FutureTask")
+                        .WithMany()
+                        .HasForeignKey("FutureTaskId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("DailyPath.Api.Models.Goal", "Goal")
+                        .WithMany()
+                        .HasForeignKey("GoalId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("DailyPlan");
+
+                    b.Navigation("FutureTask");
+
+                    b.Navigation("Goal");
+                });
+
+            modelBuilder.Entity("DailyPath.Api.Models.DailyPlan", b =>
+                {
+                    b.Navigation("Tasks");
                 });
 #pragma warning restore 612, 618
         }
