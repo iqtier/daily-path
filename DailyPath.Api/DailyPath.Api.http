@@ -115,3 +115,6 @@ Content-Type: application/json
 
 ### Future task: delete
 DELETE {{baseUrl}}/api/future-tasks/{{taskId}}
+
+### Dev: Gemini smoke test
+GET {{baseUrl}}/api/dev/gemini-ping
