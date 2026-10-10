@@ -88,3 +88,30 @@ Content-Type: application/json
   "materials": "Chapters 3 to 6",
   "status": "done"
 }
+
+### Future task: reopen
+PUT {{baseUrl}}/api/future-tasks/{{taskId}}
+Content-Type: application/json
+
+{
+  "title": "Math midterm",
+  "type": "exam",
+  "dueDate": "2026-10-15",
+  "weight": 25,
+  "estimatedHours": 8,
+  "status": "pending"
+}
+
+### Future task: should fail, weight over 100
+POST {{baseUrl}}/api/future-tasks
+Content-Type: application/json
+
+{
+  "title": "Bad task",
+  "type": "other",
+  "dueDate": "2026-10-20",
+  "weight": 500
+}
+
+### Future task: delete
+DELETE {{baseUrl}}/api/future-tasks/{{taskId}}
