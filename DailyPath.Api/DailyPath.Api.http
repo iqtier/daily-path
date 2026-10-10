@@ -1,6 +1,42 @@
-@DailyPath.Api_HostAddress = http://localhost:5173
+@baseUrl = http://localhost:5173
+@goalId = 1f696c83-18d8-48a3-9680-0dea6b55e9da
 
-GET {{DailyPath.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+### Add a goal
+POST {{baseUrl}}/api/goals
+Content-Type: application/json
 
-###
+{
+  "title": "Get fit",
+  "details": "Beginner, no gym",
+  "category": "fitness",
+  "status": "active"
+}
+
+### List goals
+GET {{baseUrl}}/api/goals
+
+### Edit a goal
+PUT {{baseUrl}}/api/goals/{{goalId}}
+Content-Type: application/json
+
+{
+  "title": "Get fit",
+  "details": "Walk 3 times a week",
+  "category": "fitness",
+  "status": "paused"
+}
+
+### Delete a goal
+DELETE {{baseUrl}}/api/goals/{{goalId}}
+
+### Should fail: missing title
+POST {{baseUrl}}/api/goals
+Content-Type: application/json
+
+{
+  "category": "fitness",
+  "status": "active"
+}
+
+### Should fail: goal that does not exist
+GET {{baseUrl}}/api/goals/00000000-0000-0000-0000-000000000099
