@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using DailyPath.Api.Configuration;
 using DailyPath.Api.Data;
 using DailyPath.Api.Services.Gemini;
+using DailyPath.Api.Services.Planning;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -32,9 +33,7 @@ builder
             new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)
         )
     );
-
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+builder.Services.AddScoped<DailyPlanService>();
 
 var app = builder.Build();
 

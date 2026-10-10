@@ -118,3 +118,28 @@ DELETE {{baseUrl}}/api/future-tasks/{{taskId}}
 
 ### Dev: Gemini smoke test
 GET {{baseUrl}}/api/dev/gemini-ping
+
+### Today: get
+GET {{baseUrl}}/api/today
+
+### Today: generate
+POST {{baseUrl}}/api/today
+Content-Type: application/json
+
+{
+  "hoursAvailable": 2
+}
+
+@task1 = a2d184de-c4ba-486c-83b9-130c079ccb1c
+@task3 = b65b0810-00df-4d42-9e68-2866decf6d27
+
+### Today: try to skip ahead (should fail)
+POST {{baseUrl}}/api/today/tasks/{{task3}}/complete
+
+### Today: complete current task
+POST {{baseUrl}}/api/today/tasks/{{task1}}/complete
+Content-Type: application/json
+
+{
+  "timeSpentSeconds": 1500
+}

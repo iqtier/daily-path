@@ -12,22 +12,25 @@ public class FutureTasksController(AppDbContext db) : ControllerBase
 {
     // Placeholder until authentication is added.
     private static readonly Guid TempUserId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+    private static readonly Dictionary<Guid, int> NoTimeSpent = [];
 
     [HttpGet]
     public async Task<ActionResult<List<FutureTaskResponse>>> GetAll()
     {
-        var tasks = await db.FutureTasks
-            .Where(t => t.UserId == TempUserId)
-            .ToListAsync();
+        var tasks = await db.FutureTasks.Where(t => t.UserId == TempUserId).ToListAsync();
+
+        var secondsSpent = await db.GetSecondsSpentByFutureTaskAsync(TempUserId);
 
         // Pending tasks first by due date, then completed tasks, most recent first.
         var ordered = tasks
             .Where(t => t.Status == FutureTaskStatus.Pending)
             .OrderBy(t => t.DueDate)
-            .Concat(tasks
-                .Where(t => t.Status == FutureTaskStatus.Done)
-                .OrderByDescending(t => t.CompletedAt))
-            .Select(ToResponse)
+            .Concat(
+                tasks
+                    .Where(t => t.Status == FutureTaskStatus.Done)
+                    .OrderByDescending(t => t.CompletedAt)
+            )
+            .Select(t => ToResponse(t, secondsSpent))
             .ToList();
 
         return Ok(ordered);
@@ -42,26 +45,33 @@ public class FutureTasksController(AppDbContext db) : ControllerBase
         db.FutureTasks.Add(task);
         await db.SaveChangesAsync();
 
-        return StatusCode(201, ToResponse(task));
+        return StatusCode(201, ToResponse(task, NoTimeSpent));
     }
 
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<FutureTaskResponse>> Update(Guid id, FutureTaskRequest req)
     {
-        var task = await db.FutureTasks.FirstOrDefaultAsync(t => t.Id == id && t.UserId == TempUserId);
-        if (task is null) return NotFound();
+        var task = await db.FutureTasks.FirstOrDefaultAsync(t =>
+            t.Id == id && t.UserId == TempUserId
+        );
+        if (task is null)
+            return NotFound();
 
         ApplyRequest(task, req);
         await db.SaveChangesAsync();
 
-        return Ok(ToResponse(task));
+        var secondsSpent = await db.GetSecondsSpentByFutureTaskAsync(TempUserId);
+        return Ok(ToResponse(task, secondsSpent));
     }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        var task = await db.FutureTasks.FirstOrDefaultAsync(t => t.Id == id && t.UserId == TempUserId);
-        if (task is null) return NotFound();
+        var task = await db.FutureTasks.FirstOrDefaultAsync(t =>
+            t.Id == id && t.UserId == TempUserId
+        );
+        if (task is null)
+            return NotFound();
 
         db.FutureTasks.Remove(task);
         await db.SaveChangesAsync();
@@ -94,23 +104,40 @@ public class FutureTasksController(AppDbContext db) : ControllerBase
     /// </summary>
     private static (decimal? Hours, EstimateSource? Source) ResolveEstimate(FutureTaskRequest req)
     {
-        if (req.EstimatedHours is not null) return (req.EstimatedHours, EstimateSource.User);
-        if (req.Size is not null) return (SizeToHours(req.Size.Value), EstimateSource.Size);
+        if (req.EstimatedHours is not null)
+            return (req.EstimatedHours, EstimateSource.User);
+        if (req.Size is not null)
+            return (SizeToHours(req.Size.Value), EstimateSource.Size);
         return (null, null);
     }
 
-    private static decimal SizeToHours(TaskSize size) => size switch
-    {
-        TaskSize.Small => 2m,
-        TaskSize.Medium => 5m,
-        TaskSize.Large => 10m,
-        TaskSize.Huge => 20m,
-        _ => throw new ArgumentOutOfRangeException(nameof(size))
-    };
+    private static decimal SizeToHours(TaskSize size) =>
+        size switch
+        {
+            TaskSize.Small => 2m,
+            TaskSize.Medium => 5m,
+            TaskSize.Large => 10m,
+            TaskSize.Huge => 20m,
+            _ => throw new ArgumentOutOfRangeException(nameof(size)),
+        };
 
-    private static FutureTaskResponse ToResponse(FutureTask t) => new(
-        t.Id, t.Title, t.Type, t.DueDate, t.Weight, t.Size, t.EstimatedHours,
-        t.EstimateSource, t.Materials, t.Status,
-        HoursDone: 0m, // TODO: sum time from linked daily tasks once they exist.
-        t.CreatedAt, t.CompletedAt);
+    private static FutureTaskResponse ToResponse(
+        FutureTask t,
+        IReadOnlyDictionary<Guid, int> secondsSpent
+    ) =>
+        new(
+            t.Id,
+            t.Title,
+            t.Type,
+            t.DueDate,
+            t.Weight,
+            t.Size,
+            t.EstimatedHours,
+            t.EstimateSource,
+            t.Materials,
+            t.Status,
+            TimeSpentMinutes: (int)Math.Round(secondsSpent.GetValueOrDefault(t.Id) / 60.0),
+            t.CreatedAt,
+            t.CompletedAt
+        );
 }

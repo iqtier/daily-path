@@ -12,7 +12,8 @@ public record FutureTaskRequest(
     TaskSize? Size,
     [Range(0.25, 1000)] decimal? EstimatedHours,
     [MaxLength(4000)] string? Materials,
-    FutureTaskStatus Status = FutureTaskStatus.Pending);
+    FutureTaskStatus Status = FutureTaskStatus.Pending
+);
 
 /// <summary>Future task as returned to the client.</summary>
 public record FutureTaskResponse(
@@ -26,6 +27,7 @@ public record FutureTaskResponse(
     EstimateSource? EstimateSource,
     string? Materials,
     FutureTaskStatus Status,
-    decimal HoursDone,
+    int TimeSpentMinutes,
     DateTime CreatedAt,
-    DateTime? CompletedAt);
+    DateTime? CompletedAt
+);
