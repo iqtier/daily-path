@@ -27,6 +27,42 @@ public class GoalsController(AppDbContext db) : ControllerBase
         return Ok(goals.Select(g => ToResponse(g, counts)).ToList());
     }
 
+    [HttpGet("{id:guid}/history")]
+    public async Task<ActionResult<List<GoalHistoryItem>>> GetHistory(Guid id)
+    {
+        var goalExists = await db.Goals.AnyAsync(g => g.Id == id && g.UserId == TempUserId);
+        if (!goalExists)
+            return NotFound();
+
+        var items = await db
+            .DailyTasks.Where(t => t.GoalId == id && t.IsCompleted)
+            .OrderByDescending(t => t.DailyPlan.Date)
+            .ThenByDescending(t => t.CompletedAt)
+            .Select(t => new
+            {
+                t.Id,
+                t.Title,
+                t.Description,
+                t.DailyPlan.Date,
+                t.CompletedAt,
+                t.TimeSpentSeconds,
+            })
+            .ToListAsync();
+
+        return Ok(
+            items
+                .Select(t => new GoalHistoryItem(
+                    t.Id,
+                    t.Title,
+                    t.Description,
+                    t.Date.ToString("yyyy-MM-dd"),
+                    t.CompletedAt,
+                    t.TimeSpentSeconds is int seconds ? (int)Math.Round(seconds / 60.0) : null
+                ))
+                .ToList()
+        );
+    }
+
     [HttpPost]
     public async Task<ActionResult<GoalResponse>> Create(GoalRequest req)
     {

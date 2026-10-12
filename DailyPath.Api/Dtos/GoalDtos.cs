@@ -19,3 +19,13 @@ public record GoalResponse(
     int CompletedTodoCount,
     DateTime CreatedAt
 );
+
+/// <summary>A completed daily task linked to a goal. The client groups items by Date.</summary>
+public record GoalHistoryItem(
+    Guid Id,
+    string Title,
+    string Description,
+    string Date,
+    DateTime? CompletedAt,
+    int? TimeSpentMinutes
+);
