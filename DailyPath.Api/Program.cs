@@ -6,6 +6,7 @@ using DailyPath.Api.Models;
 using DailyPath.Api.Services;
 using DailyPath.Api.Services.Gemini;
 using DailyPath.Api.Services.Planning;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -51,6 +52,30 @@ builder
             new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)
         )
     );
+
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
+
+    options.ExpireTimeSpan = TimeSpan.FromDays(7);
+    options.SlidingExpiration = true;
+
+    // API clients expect status codes, not redirects to a login page.
+    options.Events.OnRedirectToLogin = ctx =>
+    {
+        ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return Task.CompletedTask;
+    };
+    options.Events.OnRedirectToAccessDenied = ctx =>
+    {
+        ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+        return Task.CompletedTask;
+    };
+});
 builder.Services.AddScoped<DailyPlanService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
@@ -62,6 +87,15 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 app.MapGroup("/api/auth").MapIdentityApi<AppUser>();
+app.MapPost(
+        "/api/auth/logout",
+        async (SignInManager<AppUser> signInManager) =>
+        {
+            await signInManager.SignOutAsync();
+            return Results.NoContent();
+        }
+    )
+    .RequireAuthorization();
 app.UseHttpsRedirection();
 
 app.UseAuthorization();

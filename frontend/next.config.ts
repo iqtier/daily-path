@@ -21,6 +21,14 @@ const nextConfig: NextConfig = {
   
   // Silences the Next.js 16 Turbopack error since custom webpack watchOptions are obsolete
   turbopack: {},
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${process.env.API_URL ?? "http://localhost:5173"}/api/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

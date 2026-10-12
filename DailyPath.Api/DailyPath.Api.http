@@ -244,3 +244,18 @@ Content-Type: application/json
 ### Attacker: delete your goal
 DELETE {{baseUrl}}/api/goals/288612b4-242f-418e-8181-4360d7ce7776
 Authorization: {{auth2}}
+
+### Auth: cookie login
+POST {{baseUrl}}/api/auth/login?useCookies=true
+Content-Type: application/json
+
+{
+  "email": "iqtier@test.local",
+  "password": "blue coffee mountain"
+}
+
+### Auth: list goals with cookie (no Authorization header)
+GET {{baseUrl}}/api/goals
+
+### Auth: logout
+POST {{baseUrl}}/api/auth/logout
