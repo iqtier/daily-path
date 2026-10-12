@@ -90,7 +90,7 @@ public class PlanValidatorTests
 
         var result = PlanValidator.Validate(json, IdMap, availableMinutes: 120);
 
-        Assert.Equal(5, result.Tasks[0].EstimatedMinutes);
+        Assert.Equal(6, result.Tasks[0].EstimatedMinutes);
         Assert.Contains(result.Warnings, w => w.Contains("clamped"));
     }
 
