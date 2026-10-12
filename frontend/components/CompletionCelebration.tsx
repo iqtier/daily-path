@@ -1,64 +1,77 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
-import { CheckCircle, Sparkles, RotateCcw, Target, ListTodo } from 'lucide-react';
+import { Signpost, Summit } from '@/components/icons';
 import Link from 'next/link';
+import { celebrateDay } from '@/lib/celebrate';
 
 interface CompletionCelebrationProps {
   totalTasks: number;
-
+  /** True only right after the last task is finished, so a page reload does not replay confetti. */
+  celebrate?: boolean;
 }
 
-/**
- * CompletionCelebration
- * Shown on the dashboard when all tasks for the day are finished.
- * Displays a peaceful, motivating message with quick navigation.
- */
+/** Shown on the dashboard when every task for the day is finished. */
 export default function CompletionCelebration({
   totalTasks,
-
+  celebrate = false,
 }: CompletionCelebrationProps) {
+  const ref = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (celebrate && ref.current) void celebrateDay(ref.current);
+  }, [celebrate]);
+
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 2 }}
-      className="rounded-3xl border border-stone-200/90 bg-white p-6 sm:p-8 text-center shadow-sm space-y-5"
+    <motion.section
+      ref={ref}
+      initial={{ opacity: 0, y: 12, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+      className="relative overflow-hidden rounded-[2rem] bg-surface p-6 sm:p-8 text-center shadow-[0_24px_50px_-24px_color-mix(in_oklab,var(--brand)_55%,transparent)]"
     >
-      <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-100/80 text-emerald-700 flex items-center justify-center ring-8 ring-emerald-50">
-        <CheckCircle className="w-8 h-8 stroke-[2.2]" />
-      </div>
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 pointer-events-none bg-[radial-gradient(90%_70%_at_50%_0%,color-mix(in_oklab,var(--brand)_14%,transparent),transparent_70%)]"
+      />
 
-      <div className="space-y-1.5 max-w-md mx-auto">
-        <h2 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight flex items-center justify-center gap-2">
-          <span>You&apos;re done for today</span>
-          <Sparkles className="w-5 h-5 text-amber-500 fill-amber-300" />
-        </h2>
-        <p className="text-sm sm:text-base text-stone-600 leading-relaxed">
-          All {totalTasks} focus steps have been completed. Step back, rest your mind, and let your progress compound.
-        </p>
-      </div>
-
-      <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
-        <Link
-          href="/goals"
-          className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium text-stone-700 bg-stone-100 hover:bg-stone-200 px-4 py-2 rounded-xl transition-colors"
+      <div className="relative space-y-5">
+        <motion.div
+          initial={{ rotate: -12, scale: 0.6 }}
+          animate={{ rotate: 0, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 12, delay: 0.15 }}
+          className="w-16 h-16 mx-auto rounded-2xl bg-brand-gradient text-on-brand flex items-center justify-center shadow-[0_10px_24px_-8px_color-mix(in_oklab,var(--brand-2)_60%,transparent)]"
         >
-          <Target className="w-4 h-4" />
-          <span>Review Goals</span>
-        </Link>
+          <Summit className="w-8 h-8 stroke-[2.2]" />
+        </motion.div>
 
-        <Link
-          href="/tasks"
-          className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium text-stone-700 bg-stone-100 hover:bg-stone-200 px-4 py-2 rounded-xl transition-colors"
-        >
-          <ListTodo className="w-4 h-4" />
-          <span>Plan Future Tasks</span>
-        </Link>
+        <div className="space-y-1.5 max-w-md mx-auto">
+          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-balance">
+            You&apos;re done for today
+          </h2>
+          <p className="text-sm sm:text-base text-ink-muted leading-relaxed">
+            All {totalTasks} steps checked off. Go rest, your progress is stacking up.
+          </p>
+        </div>
 
-      
+        <div className="flex flex-wrap items-center justify-center gap-2.5">
+          <Link
+            href="/goals"
+            className="inline-flex items-center gap-1.5 text-sm font-bold text-ink bg-sunk hover:bg-line px-4 py-2.5 rounded-2xl transition-colors"
+          >
+            <Summit className="w-4 h-4" />
+            Review goals
+          </Link>
+          <Link
+            href="/tasks"
+            className="inline-flex items-center gap-1.5 text-sm font-bold text-ink bg-sunk hover:bg-line px-4 py-2.5 rounded-2xl transition-colors"
+          >
+            <Signpost className="w-4 h-4" />
+            Plan what&apos;s next
+          </Link>
+        </div>
       </div>
-    </motion.div>
+    </motion.section>
   );
 }

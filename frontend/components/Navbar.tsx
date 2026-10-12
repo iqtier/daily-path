@@ -3,15 +3,10 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  Compass,
-  CheckCircle2,
-  Target,
-  ListTodo,
-  Plus,
-  RotateCcw,
-  User as UserIcon,
-} from 'lucide-react';
+import { motion } from 'motion/react';
+import { Plus, User as UserIcon } from 'lucide-react';
+import ThemeToggle from '@/components/ThemeToggle';
+import { type IconComponent, Signpost, SteppingStones, Summit, TrailMark } from '@/components/icons';
 
 interface NavbarProps {
   onOpenNewGoal?: () => void;
@@ -19,110 +14,119 @@ interface NavbarProps {
   onResetDemo?: () => void;
 }
 
+/** One half of the add control: the thing's own icon with a small plus badge, then its name. */
+function AddButton({
+  icon: Icon,
+  label,
+  ariaLabel,
+  onClick,
+}: {
+  icon: IconComponent;
+  label: string;
+  ariaLabel: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      title={ariaLabel}
+      className="group inline-flex items-center gap-1.5 h-full pl-2 pr-2.5 rounded-[0.6rem] text-xs sm:text-sm font-bold text-ink-muted hover:text-ink hover:bg-surface hover:shadow-soft transition-all"
+    >
+      <span className="relative w-4 h-4 shrink-0">
+        <Icon className="w-4 h-4" />
+        <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-brand-gradient text-on-brand flex items-center justify-center ring-2 ring-sunk transition-transform group-hover:scale-110 group-hover:ring-surface">
+          <Plus className="w-2 h-2 stroke-[4]" />
+        </span>
+      </span>
+      {label}
+    </button>
+  );
+}
+
+const LINKS = [
+  { href: '/dashboard', label: 'Today', mobileLabel: 'Today', icon: SteppingStones },
+  { href: '/goals', label: 'Goals', mobileLabel: 'Goals', icon: Summit },
+  { href: '/tasks', label: 'Future Tasks', mobileLabel: 'Future', icon: Signpost },
+] as const;
+
 /**
- * Navbar
- * Calm, minimalist header and mobile bottom bar for Daily Path.
- * Provides quick access to Today's path, Goals, Future Tasks, and creation actions.
+ * Floating top bar on all sizes, plus a floating dock on phones.
+ * Every color comes from theme tokens, so both follow light and dark mode.
  */
-export default function Navbar({
-  onOpenNewGoal,
-  onOpenNewTask,
-  onResetDemo,
-}: NavbarProps) {
+export default function Navbar({ onOpenNewGoal, onOpenNewTask }: NavbarProps) {
   const pathname = usePathname();
 
-  const isToday = pathname === '/dashboard' || pathname === '/';
-  const isGoals = pathname === '/goals';
-  const isTasks = pathname === '/tasks';
+  const isActive = (href: string) =>
+    href === '/dashboard'
+      ? pathname === '/dashboard' || pathname === '/'
+      : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <>
-      {/* Desktop & Tablet Top Bar */}
-      <header className="sticky top-0 z-30 bg-white/85 backdrop-blur-md border-b border-stone-200/80 transition-colors">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          {/* Logo & Brand */}
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2.5 group focus:outline-none"
-          >
-            <div className="w-8 h-8 rounded-xl bg-stone-900 text-stone-50 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
-              <Compass className="w-4 h-4 stroke-[2.2]" />
-            </div>
-            <div>
-              <span className="font-semibold text-stone-900 tracking-tight text-base sm:text-lg">
-                Daily Path
-              </span>
-              <span className="hidden sm:inline-block ml-2 text-xs font-medium text-stone-600">
-                one focus at a time
-              </span>
-            </div>
+      <header className="sticky top-0 z-30 px-3 sm:px-4 pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
+        <div className="max-w-4xl mx-auto h-14 pl-2 pr-2 sm:pl-2.5 flex items-center justify-between gap-2 rounded-[1.4rem] bg-surface/80 backdrop-blur-xl border border-line/70 shadow-soft">
+          <Link href="/dashboard" aria-label="Daily Path, today" className="flex items-center gap-2.5 group rounded-2xl">
+            <span className="w-10 h-10 rounded-[0.9rem] bg-brand-gradient text-on-brand flex items-center justify-center shadow-[0_6px_14px_-6px_color-mix(in_oklab,var(--brand)_80%,transparent)] transition-transform group-hover:-rotate-6 group-hover:scale-105">
+              <TrailMark className="w-5 h-5 stroke-[2.4]" />
+            </span>
+            {/* Hidden on the narrowest phones so the action buttons fit at 375px. */}
+            <span className="hidden min-[400px]:inline font-extrabold tracking-tight text-base sm:text-lg">
+              Daily Path
+            </span>
           </Link>
 
-          {/* Nav Links */}
-          <nav className="hidden md:flex items-center gap-1 bg-stone-100/80 p-1 rounded-full border border-stone-200/60 text-sm">
-            <Link
-              href="/dashboard"
-              className={`px-3.5 py-1.5 rounded-full font-medium transition-all ${
-                isToday
-                  ? 'bg-white text-stone-900 shadow-xs'
-                  : 'text-stone-600 hover:text-stone-900'
-              }`}
-            >
-              Today
-            </Link>
-            <Link
-              href="/goals"
-              className={`px-3.5 py-1.5 rounded-full font-medium transition-all ${
-                isGoals
-                  ? 'bg-white text-stone-900 shadow-xs'
-                  : 'text-stone-600 hover:text-stone-900'
-              }`}
-            >
-              Goals
-            </Link>
-            <Link
-              href="/tasks"
-              className={`px-3.5 py-1.5 rounded-full font-medium transition-all ${
-                isTasks
-                  ? 'bg-white text-stone-900 shadow-xs'
-                  : 'text-stone-600 hover:text-stone-900'
-              }`}
-            >
-              Future Tasks
-            </Link>
+          <nav aria-label="Main" className="hidden md:flex items-center gap-1 text-sm">
+            {LINKS.map(({ href, label, icon: Icon }) => {
+              const active = isActive(href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={active ? 'page' : undefined}
+                  className={`relative inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl font-bold transition-colors ${
+                    active ? 'text-on-brand' : 'text-ink-muted hover:text-ink hover:bg-sunk'
+                  }`}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="nav-active"
+                      transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                      className="absolute inset-0 rounded-2xl bg-brand-gradient shadow-[0_6px_14px_-6px_color-mix(in_oklab,var(--brand)_80%,transparent)]"
+                    />
+                  )}
+                  <Icon className="relative w-4 h-4" />
+                  <span className="relative">{label}</span>
+                </Link>
+              );
+            })}
           </nav>
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-2">
-          
-            
-
-            {onOpenNewGoal && (
-              <button
-                type="button"
-                onClick={onOpenNewGoal}
-                className="inline-flex items-center gap-1 text-xs sm:text-sm font-medium text-stone-700 bg-stone-100 hover:bg-stone-200 px-3 py-1.5 rounded-lg transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>New Goal</span>
-              </button>
+          <div className="flex items-center gap-1.5">
+            {(onOpenNewGoal || onOpenNewTask) && (
+              <div role="group" aria-label="Add new" className="flex items-center h-9 p-0.5 rounded-xl bg-sunk">
+                {onOpenNewGoal && (
+                  <AddButton icon={Summit} label="Goal" ariaLabel="New goal" onClick={onOpenNewGoal} />
+                )}
+                {onOpenNewGoal && onOpenNewTask && (
+                  <span aria-hidden="true" className="w-px h-4 bg-line" />
+                )}
+                {onOpenNewTask && (
+                  <AddButton icon={Signpost} label="Task" ariaLabel="New future task" onClick={onOpenNewTask} />
+                )}
+              </div>
             )}
 
-            {onOpenNewTask && (
-              <button
-                type="button"
-                onClick={onOpenNewTask}
-                className="inline-flex items-center gap-1 text-xs sm:text-sm font-medium text-white bg-stone-900 hover:bg-stone-800 px-3 py-1.5 rounded-lg transition-colors shadow-xs"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>New Task</span>
-              </button>
-            )}
+            <span aria-hidden="true" className="hidden sm:block w-px h-6 bg-line mx-0.5" />
+
+            <ThemeToggle />
 
             <Link
               href="/login"
-              title="User profile"
-              className="ml-1 w-8 h-8 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center text-stone-600 hover:text-stone-900 transition-colors"
+              title="Account"
+              aria-label="Account"
+              className="w-9 h-9 rounded-full bg-sunk flex items-center justify-center text-ink-muted hover:text-ink transition-colors"
             >
               <UserIcon className="w-4 h-4" />
             </Link>
@@ -130,55 +134,33 @@ export default function Navbar({
         </div>
       </header>
 
-      {/* Mobile Bottom Navigation Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-stone-200 px-4 py-2 flex items-center justify-around shadow-sm">
-        <Link
-          href="/dashboard"
-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-xs font-medium transition-colors ${
-            isToday ? 'text-stone-900 font-semibold' : 'text-stone-600'
-          }`}
-        >
-          <div
-            className={`w-6 h-6 rounded-full flex items-center justify-center ${
-              isToday ? 'bg-stone-900 text-white' : 'text-stone-600'
-            }`}
-          >
-            <CheckCircle2 className="w-4 h-4" />
-          </div>
-          <span>Today</span>
-        </Link>
-
-        <Link
-          href="/goals"
-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-xs font-medium transition-colors ${
-            isGoals ? 'text-stone-900 font-semibold' : 'text-stone-600'
-          }`}
-        >
-          <div
-            className={`w-6 h-6 rounded-full flex items-center justify-center ${
-              isGoals ? 'bg-stone-900 text-white' : 'text-stone-600'
-            }`}
-          >
-            <Target className="w-4 h-4" />
-          </div>
-          <span>Goals</span>
-        </Link>
-
-        <Link
-          href="/tasks"
-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-xs font-medium transition-colors ${
-            isTasks ? 'text-stone-900 font-semibold' : 'text-stone-600'
-          }`}
-        >
-          <div
-            className={`w-6 h-6 rounded-full flex items-center justify-center ${
-              isTasks ? 'bg-stone-900 text-white' : 'text-stone-600'
-            }`}
-          >
-            <ListTodo className="w-4 h-4" />
-          </div>
-          <span>Future</span>
-        </Link>
+      <nav
+        aria-label="Main"
+        className="md:hidden fixed inset-x-3 z-30 bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] rounded-[1.6rem] bg-surface/85 backdrop-blur-xl border border-line/70 shadow-soft p-1.5 flex items-center"
+      >
+        {LINKS.map(({ href, mobileLabel, icon: Icon }) => {
+          const active = isActive(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-current={active ? 'page' : undefined}
+              className={`relative flex-1 flex flex-col items-center gap-0.5 py-2 rounded-[1.2rem] text-[11px] font-extrabold transition-colors ${
+                active ? 'text-on-brand' : 'text-ink-muted'
+              }`}
+            >
+              {active && (
+                <motion.span
+                  layoutId="dock-active"
+                  transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                  className="absolute inset-0 rounded-[1.2rem] bg-brand-gradient"
+                />
+              )}
+              <Icon className="relative w-5 h-5" />
+              <span className="relative">{mobileLabel}</span>
+            </Link>
+          );
+        })}
       </nav>
     </>
   );

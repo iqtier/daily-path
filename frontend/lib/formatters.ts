@@ -77,6 +77,12 @@ export function getDurationComparison(
   };
 }
 
+/** Today's date as YYYY-MM-DD in the user's local time zone (toISOString would give the UTC date). */
+export function localDateKey(date: Date = new Date()): string {
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 /**
  * Friendly relative date display without clock times (e.g. "Today", "Due in 4 days")
  */
@@ -87,8 +93,13 @@ export function formatDueDateBadge(dueDateString: string): {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const target = new Date(dueDateString);
-    target.setHours(0, 0, 0, 0);
+    // new Date('YYYY-MM-DD') parses as UTC midnight, which is the previous day west of UTC.
+    const [y, m, d] = dueDateString.split('-').map(Number);
+    const target = new Date(y, m - 1, d);
+
+    if (Number.isNaN(target.getTime())) {
+      return { text: dueDateString, isUrgent: false };
+    }
 
     const diffDays = Math.round(
       (target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
@@ -106,7 +117,8 @@ export function formatDueDateBadge(dueDateString: string): {
     if (diffDays <= 7) {
       return { text: `Due in ${diffDays} days`, isUrgent: diffDays <= 3 };
     }
-    return { text: `Due ${dueDateString}`, isUrgent: false };
+    const label = target.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return { text: `Due ${label}`, isUrgent: false };
   } catch {
     return { text: dueDateString, isUrgent: false };
   }

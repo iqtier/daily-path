@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { motion } from 'motion/react';
-import { Clock, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
+import { StopwatchPlus, Summit } from '@/components/icons';
 
 interface BonusTimeCardProps {
   minutesLeft: number;
@@ -12,8 +13,7 @@ interface BonusTimeCardProps {
 }
 
 /**
- * BonusTimeCard
- * Shown under "You're done for today" when there is spare time left.
+ * Sits under "You're done for today" when there is spare time left.
  * Offers a bonus task, or a closing message once the daily limit is reached.
  */
 export default function BonusTimeCard({
@@ -22,36 +22,41 @@ export default function BonusTimeCard({
   isLoading,
   onGetBonusTask,
 }: BonusTimeCardProps) {
+  const Icon = limitReached ? Summit : StopwatchPlus;
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
+    <motion.section
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="rounded-2xl border border-stone-200/90 bg-white p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+      transition={{ type: 'spring', stiffness: 240, damping: 24, delay: 0.25 }}
+      className="rounded-3xl border border-line bg-surface p-4 sm:p-5 shadow-soft flex flex-col sm:flex-row sm:items-center gap-3"
     >
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 shrink-0 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center">
-          <Clock className="w-4.5 h-4.5" />
-        </div>
-        <p className="text-sm sm:text-base text-stone-700">
-          {limitReached
-            ? "That's it for today. Great work."
-            : `You still have ${minutesLeft} min. Want a bonus task?`}
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <span className="w-10 h-10 shrink-0 rounded-2xl bg-warn-soft text-warn flex items-center justify-center">
+          <Icon className="w-5 h-5" />
+        </span>
+        <p className="text-sm sm:text-base">
+          {limitReached ? (
+            "That's it for today. Great work."
+          ) : (
+            <>
+              You still have <strong className="tabular-nums">{minutesLeft} min</strong>. Want a bonus task?
+            </>
+          )}
         </p>
       </div>
 
-      {/* Button is hidden once the daily bonus limit is reached */}
       {!limitReached && (
         <button
           type="button"
           onClick={onGetBonusTask}
           disabled={isLoading}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 bg-stone-900 hover:bg-stone-800 text-white font-semibold text-sm px-4 py-2 rounded-xl transition-all shadow-sm active:scale-[0.98] disabled:opacity-60 cursor-pointer"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 bg-ink text-canvas font-extrabold text-sm px-4 py-2.5 rounded-2xl transition-transform hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-60 disabled:hover:translate-y-0"
         >
-          <Plus className="w-4 h-4 stroke-[2.5]" />
-          <span>{isLoading ? 'Finding a task...' : 'Get bonus task'}</span>
+          <Plus className="w-4 h-4 stroke-[3]" />
+          {isLoading ? 'Picking one for you…' : 'Get bonus task'}
         </button>
       )}
-    </motion.div>
+    </motion.section>
   );
 }

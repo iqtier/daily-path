@@ -1,1 +1,161 @@
 @import "tailwindcss";
+
+/* Dark mode follows the .dark class set by the theme script, so a saved choice can override the OS. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Map runtime CSS variables to Tailwind colors. `inline` keeps the var() reference,
+   so a parent's .accent-* class re-colors every accent utility inside it. */
+@theme inline {
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-sunk: var(--sunk);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-line: var(--line);
+  --color-trail: var(--trail);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-brand: var(--brand);
+  --color-brand-2: var(--brand-2);
+  --color-on-brand: var(--on-brand);
+
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-ink: var(--accent-ink);
+  --color-on-accent: var(--on-accent);
+}
+
+:root {
+  color-scheme: light;
+  --canvas: #f5f4fa;
+  --surface: #ffffff;
+  --sunk: #f1f0f7;
+  --ink: #1a1930;
+  --ink-muted: #5c5a75;
+  --line: #e5e3ef;
+  --trail: #cfcde0;
+  --good: #137a3a;
+  --good-soft: #e7f6ec;
+  --warn: #b45309;
+  --warn-soft: #fdf1e3;
+  --danger: #b91c1c;
+  --danger-soft: #fdecec;
+  --brand: #6a5cff;
+  /* Deep enough that white text stays at 4.5:1 across the whole gradient. */
+  --brand-2: #c2399f;
+  --on-brand: #ffffff;
+  --focus: #5b4bff;
+
+  /* Default accent is the brand; .accent-* classes below override it per goal category. */
+  --accent: #6a5cff;
+  --accent-2: #c2399f;
+  --accent-strong: #4f3fe0;
+  --accent-ink: #4535c8;
+  --on-accent: #ffffff;
+}
+
+.dark {
+  color-scheme: dark;
+  --canvas: #0e1122;
+  --surface: #171b33;
+  --sunk: #20253f;
+  --ink: #eef0ff;
+  --ink-muted: #a6aacb;
+  --line: #2a2f4e;
+  --trail: #3a4068;
+  --good: #5bd69a;
+  --good-soft: #133326;
+  --warn: #ffc066;
+  --warn-soft: #3a2a12;
+  --danger: #ff9b9b;
+  --danger-soft: #3b1a1f;
+  --brand: #8f84ff;
+  --brand-2: #f07fd2;
+  /* The dark-mode gradient is light, so text on it flips to near-black. */
+  --on-brand: #160f45;
+  --focus: #a79bff;
+
+  --accent: #8f84ff;
+  --accent-2: #f07fd2;
+  --accent-strong: #a79bff;
+  --accent-ink: #c4bcff;
+  --on-accent: #160f45;
+}
+
+/* Goal category accents. Light buttons use the darker --accent-strong with white text for
+   4.5:1 contrast; dark mode flips to light fills with dark text for the same reason. */
+.accent-fitness  { --accent: #f0603f; --accent-2: #ff4f7b; --accent-strong: #c2381f; --accent-ink: #a8321c; --on-accent: #ffffff; }
+.accent-career   { --accent: #3b7bf0; --accent-2: #22b8e8; --accent-strong: #2259c9; --accent-ink: #1e4fb3; --on-accent: #ffffff; }
+.accent-learning { --accent: #8b5cf6; --accent-2: #c25cf0; --accent-strong: #6a3bcb; --accent-ink: #5b32b0; --on-accent: #ffffff; }
+.accent-health   { --accent: #22b07a; --accent-2: #0e7d70; --accent-strong: #157a52; --accent-ink: #12684a; --on-accent: #ffffff; }
+.accent-personal { --accent: #ec4f8e; --accent-2: #c9387f; --accent-strong: #b8306a; --accent-ink: #a12a5d; --on-accent: #ffffff; }
+.accent-other    { --accent: #6b7a92; --accent-2: #8e9bb0; --accent-strong: #4a5870; --accent-ink: #445067; --on-accent: #ffffff; }
+.accent-deadline { --accent: #f59e0b; --accent-2: #b44a0c; --accent-strong: #a35f00; --accent-ink: #8a4f00; --on-accent: #ffffff; }
+
+.dark .accent-fitness  { --accent: #ff8a75; --accent-2: #ff6b93; --accent-strong: #ff9a87; --accent-ink: #ffb3a5; --on-accent: #2a0d06; }
+.dark .accent-career   { --accent: #7aa7ff; --accent-2: #5cd0f5; --accent-strong: #8db4ff; --accent-ink: #a9c6ff; --on-accent: #0a1a3a; }
+.dark .accent-learning { --accent: #b79bff; --accent-2: #de8cff; --accent-strong: #c3abff; --accent-ink: #d0beff; --on-accent: #1d0f45; }
+.dark .accent-health   { --accent: #5fd9a3; --accent-2: #6fe3d3; --accent-strong: #6eddac; --accent-ink: #8ce6be; --on-accent: #062a1b; }
+.dark .accent-personal { --accent: #ff8fbc; --accent-2: #ffa3c9; --accent-strong: #ff9dc4; --accent-ink: #ffb6d3; --on-accent: #3a0a1e; }
+.dark .accent-other    { --accent: #a8b4c6; --accent-2: #c3ccda; --accent-strong: #b5c0d0; --accent-ink: #c3ccda; --on-accent: #141b26; }
+.dark .accent-deadline { --accent: #ffc24d; --accent-2: #ff9f45; --accent-strong: #ffc75c; --accent-ink: #ffd27a; --on-accent: #2b1a00; }
+
+/* Soft layered depth for resting cards. */
+@utility shadow-soft {
+  box-shadow: 0 1px 2px rgb(20 18 50 / 0.05), 0 10px 28px -12px rgb(20 18 50 / 0.16);
+  .dark & {
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 12px 30px -14px rgb(0 0 0 / 0.7);
+  }
+}
+
+/* Accent-tinted glow that marks the one card the user should act on. */
+@utility shadow-glow {
+  box-shadow: 0 0 0 1.5px color-mix(in oklab, var(--accent) 50%, transparent),
+    0 22px 44px -18px color-mix(in oklab, var(--accent) 70%, transparent);
+}
+
+@utility bg-accent-gradient {
+  background-image: linear-gradient(135deg, var(--accent-strong), color-mix(in oklab, var(--accent-strong) 72%, var(--accent-2)));
+}
+
+@utility bg-brand-gradient {
+  background-image: linear-gradient(135deg, var(--brand), var(--brand-2));
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background-color: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-sans);
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+/* CSS animations follow the OS setting; Motion animations are handled by MotionConfig. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
