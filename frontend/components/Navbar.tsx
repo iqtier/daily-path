@@ -94,18 +94,8 @@ export default function Navbar({
 
           {/* Action buttons */}
           <div className="flex items-center gap-2">
-            {/* TODO: remove before connecting the real backend */}
-            {onResetDemo && (
-              <button
-                type="button"
-                onClick={onResetDemo}
-                title="Reset demo data to initial sample"
-                className="hidden sm:inline-flex items-center gap-1.5 text-xs text-stone-700 hover:text-stone-900 px-2.5 py-1.5 rounded-lg border border-stone-200/80 hover:bg-stone-50 transition-colors"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset Demo</span>
-              </button>
-            )}
+          
+            
 
             {onOpenNewGoal && (
               <button

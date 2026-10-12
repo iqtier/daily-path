@@ -7,7 +7,7 @@ import Link from 'next/link';
 
 interface CompletionCelebrationProps {
   totalTasks: number;
-  onReset: () => void;
+
 }
 
 /**
@@ -17,7 +17,7 @@ interface CompletionCelebrationProps {
  */
 export default function CompletionCelebration({
   totalTasks,
-  onReset,
+
 }: CompletionCelebrationProps) {
   return (
     <motion.div
@@ -57,14 +57,7 @@ export default function CompletionCelebration({
           <span>Plan Future Tasks</span>
         </Link>
 
-        <button
-          type="button"
-          onClick={onReset}
-          className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium text-stone-600 hover:text-stone-900 px-3 py-2 rounded-xl border border-stone-200/80 hover:bg-stone-50 transition-colors"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span>Reset Sample Path</span>
-        </button>
+      
       </div>
     </motion.div>
   );

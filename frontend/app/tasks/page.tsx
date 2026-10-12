@@ -10,7 +10,7 @@ import {
   updateFutureTask,
   deleteFutureTask,
   addGoal,
-  resetDemoData,
+
 } from '@/lib/api';
 import {
   FutureTask,
@@ -127,7 +127,7 @@ export default function TasksPage() {
   };
 
   const handleReset = async () => {
-    await resetDemoData();
+   
     await loadData();
   };
 
@@ -195,17 +195,7 @@ export default function TasksPage() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setEditingTask(null);
-              setIsTaskModalOpen(true);
-            }}
-            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-white bg-stone-900 hover:bg-stone-800 px-4 py-2 rounded-xl transition-all shadow-xs self-start sm:self-auto cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Task</span>
-          </button>
+       
         </div>
 
         {/* Filter Type Pills */}

@@ -1,24 +1,12 @@
 /**
- * Daily Path — Unified Frontend API Client
+ * Daily Path API client.
  *
- * All data calls flow through this module. Currently backed by mock storage
- * with localStorage persistence so interactions (timer, completing tasks,
- * adding goals/tasks) persist across reloads.
+ * All requests go to /api/*, which Next.js proxies to the ASP.NET Core backend
+ * (see next.config). Authentication uses an HttpOnly cookie set at login, so no
+ * token is stored or sent from JavaScript.
  *
- * Later, this file can be pointed directly at the real backend API endpoints:
- * - GET    /api/today
- * - POST   /api/today/tasks/{id}/complete
- * - POST   /api/today/bonus
- * - GET    /api/goals
- * - POST   /api/goals
- * - PUT    /api/goals/{id}
- * - DELETE /api/goals/{id}
- * - GET    /api/future-tasks
- * - POST   /api/future-tasks
- * - PUT    /api/future-tasks/{id}
- * - DELETE /api/future-tasks/{id}
- * - POST   /api/auth/login
- * - POST   /api/auth/register
+ * Responses are adapted to the shapes in ./types so components stay decoupled
+ * from the wire format.
  */
 
 import {
@@ -30,599 +18,323 @@ import {
   GoalTodoHistoryItem,
   GoalNote,
 } from './types';
-import {
-  initialDailyPlanResponse,
-  initialGoals,
-  initialFutureTasks,
-  initialUser,
-  allDailyTasksDefinition,
-  bonusTaskDefinitions,
-  initialGoalHistory,
-  initialGoalNotes,
-} from './mockData';
 
-const STORAGE_KEYS = {
-  DAILY_PLAN: 'daily_path_plan_v1',
-  GOALS: 'daily_path_goals_v1',
-  GOAL_HISTORY: 'daily_path_goal_history_v1',
-  GOAL_NOTES: 'daily_path_goal_notes_v1',
-  FUTURE_TASKS: 'daily_path_future_tasks_v1',
-  USER: 'daily_path_user_v1',
-  AUTH_TOKEN: 'daily_path_auth_token_v1',
-};
 
-// Artificial delay to simulate realistic network latency
-const delay = (ms = 120) => new Promise((resolve) => setTimeout(resolve, ms));
-
-/**
- * Helper to safely read from localStorage
- */
-function readStorage<T>(key: string, fallback: T): T {
-  if (typeof window === 'undefined') return fallback;
-  try {
-    const item = localStorage.getItem(key);
-    return item ? JSON.parse(item) : fallback;
-  } catch (err) {
-    console.error(`Error reading ${key} from storage:`, err);
-    return fallback;
-  }
-}
-
-/**
- * Helper to safely write to localStorage
- */
-function writeStorage<T>(key: string, value: T): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (err) {
-    console.error(`Error writing ${key} to storage:`, err);
-  }
-}
-
-// -----------------------------------------------------------------------------
-// Daily Tasks API (/api/today)
-// -----------------------------------------------------------------------------
-
-// Max number of times the user can ask for a bonus task in one day
 export const MAX_BONUS_REQUESTS_PER_DAY = 3;
 
-/**
- * Read today's plan from storage.
- * Plans saved before the bonus feature existed lack the new fields,
- * so fill them in from the initial mock data.
- */
-function readDailyPlan(): DailyPlanResponse {
-  const plan = readStorage<DailyPlanResponse>(
-    STORAGE_KEYS.DAILY_PLAN,
-    initialDailyPlanResponse
-  );
-  return {
-    ...plan,
-    hoursAvailableToday:
-      plan.hoursAvailableToday ?? initialDailyPlanResponse.hoursAvailableToday,
-    bonusRequestsToday: plan.bonusRequestsToday ?? 0,
-  };
+// -----------------------------------------------------------------------------
+// HTTP helper
+// -----------------------------------------------------------------------------
+
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = 'ApiError';
+  }
 }
 
 /**
- * Fetch today's daily task list.
- * In a real backend, if none exists yet, the backend generates it first with AI.
+ * Sends a request to the backend and parses JSON.
+ * Throws ApiError with the server's message on non-2xx responses.
+ * Redirects to /login on 401 for non-auth endpoints.
  */
-export async function getToday(): Promise<DailyPlanResponse> {
-  await delay(100);
-  return readDailyPlan();
-}
-
-/**
- * Mark a daily task complete.
- * Security rules enforced:
- * 1. Only the first unfinished task can be completed.
- * 2. timeSpentSeconds must be between 0 and 86400 (24h).
- * 3. Locked tasks remain locked until the prior task is marked done.
- * 4. estimatedMinutes is only revealed for completed tasks.
- */
-export async function completeTask(
-  id: string,
-  timeSpentSeconds?: number
-): Promise<DailyPlanResponse> {
-  await delay(200);
-
-  // Validate timeSpentSeconds if provided
-  if (timeSpentSeconds !== undefined) {
-    if (timeSpentSeconds < 0 || timeSpentSeconds > 86400) {
-      throw new Error('Invalid timeSpentSeconds: must be between 0 and 24 hours');
-    }
-  }
-
-  const currentPlan = readDailyPlan();
-
-  // Find the first unfinished task in order
-  const firstUnfinished = currentPlan.tasks.find(
-    (t) => !t.isCompleted && !t.isLocked
-  );
-
-  if (!firstUnfinished || firstUnfinished.id !== id) {
-    throw new Error('Security violation: Only the first unfinished task can be marked complete');
-  }
-
-  // Complete the target task (bonus tasks have their own definitions)
-  const taskDef = allDailyTasksDefinition[id] ?? bonusTaskDefinitions[id];
-  const updatedTasks: DailyTaskItem[] = currentPlan.tasks.map((task) => {
-    if (task.id === id) {
-      return {
-        ...task,
-        isCompleted: true,
-        completedAt: new Date().toISOString(),
-        timeSpentSeconds: timeSpentSeconds !== undefined ? timeSpentSeconds : undefined,
-        // Backend now reveals the estimatedMinutes because the task is done
-        estimatedMinutes: taskDef ? taskDef.estimatedMinutes : 25,
-      };
-    }
-    return task;
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await fetch(`/api${path}`, {
+    ...init,
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', ...init.headers },
   });
 
-  // Find the next task in order to unlock it
-  const completedTaskOrder = firstUnfinished.order;
-  const nextTask = updatedTasks.find((t) => t.order === completedTaskOrder + 1);
-
-  if (nextTask && nextTask.isLocked) {
-    const nextDef = allDailyTasksDefinition[nextTask.id];
-    if (nextDef) {
-      nextTask.isLocked = false;
-      nextTask.isCompleted = false;
-      nextTask.title = nextDef.title;
-      nextTask.description = nextDef.description;
-      nextTask.reason = nextDef.reason;
-      nextTask.linkedTo = nextDef.linkedTo;
-      // Do NOT send estimatedMinutes until nextTask is completed!
-      delete nextTask.estimatedMinutes;
-    }
+  if (res.status === 401 && !path.startsWith('/auth/') && typeof window !== 'undefined') {
+    window.location.href = '/login';
   }
 
-  const completedCount = updatedTasks.filter((t) => t.isCompleted).length;
+  const text = await res.text();
 
-  const updatedPlan: DailyPlanResponse = {
-    ...currentPlan,
-    completedTasks: completedCount,
-    tasks: updatedTasks,
-  };
+  // Null fields are dropped so they read as undefined, matching optional types.
+  const body = text ? JSON.parse(text, (_key, value) => (value === null ? undefined : value)) : undefined;
 
-  writeStorage(STORAGE_KEYS.DAILY_PLAN, updatedPlan);
-  return updatedPlan;
+  if (!res.ok) {
+    throw new ApiError(res.status, extractErrorMessage(body) ?? `Request failed (${res.status})`);
+  }
+
+  return body as T;
 }
 
-/**
- * Request bonus tasks for leftover time once today's plan is finished.
- * For now this returns 1 mock task linked to a goal, marked isBonus: true.
- * The task is also added to today's plan so the normal timer and
- * "Mark done" flow (completeTask) work on it.
- * Limited to MAX_BONUS_REQUESTS_PER_DAY requests per day.
- */
+/** Reads the message from { error } or from ASP.NET validation problem details. */
+function extractErrorMessage(body: unknown): string | undefined {
+  if (!body || typeof body !== 'object') return undefined;
+  const b = body as { error?: string; title?: string; errors?: Record<string, string[]> };
+  if (b.error) return b.error;
+  const firstValidationError = b.errors ? Object.values(b.errors).flat()[0] : undefined;
+  return firstValidationError ?? b.title;
+}
+
+const json = (data: unknown): RequestInit => ({ body: JSON.stringify(data) });
+
+// -----------------------------------------------------------------------------
+// Today (/api/today)
+// -----------------------------------------------------------------------------
+
+type TodayWire = Omit<DailyPlanResponse, 'hoursAvailableToday' | 'bonusRequestsToday'> & {
+  hoursAvailableToday?: number;
+};
+
+function toDailyPlan(r: TodayWire): DailyPlanResponse {
+  return {
+    ...r,
+    hoursAvailableToday: r.hoursAvailableToday ?? r.defaultHoursAvailable,
+    bonusRequestsToday: MAX_BONUS_REQUESTS_PER_DAY - r.bonusRequestsLeft,
+  };
+}
+
+/** Today's plan. When hasPlan is false, show the setup screen and call generateToday. */
+export async function getToday(): Promise<DailyPlanResponse> {
+  return toDailyPlan(await request<TodayWire>('/today'));
+}
+
+/** Generates today's plan with the AI. Returns the existing plan if one was already made. */
+export async function generateToday(hoursAvailable: number): Promise<DailyPlanResponse> {
+  return toDailyPlan(
+    await request<TodayWire>('/today', { method: 'POST', ...json({ hoursAvailable }) })
+  );
+}
+
+/** Completes the current task. The server rejects any task that is not first in line. */
+export async function completeTask(id: string, timeSpentSeconds?: number): Promise<DailyPlanResponse> {
+  return toDailyPlan(
+    await request<TodayWire>(`/today/tasks/${id}/complete`, {
+      method: 'POST',
+      ...json({ timeSpentSeconds: timeSpentSeconds ?? null }),
+    })
+  );
+}
+
+/** Requests bonus tasks and returns the full updated plan. */
+export async function requestBonus(): Promise<DailyPlanResponse> {
+  return toDailyPlan(await request<TodayWire>('/today/bonus', { method: 'POST' }));
+}
+
+/** Requests bonus tasks and returns only the newly added, unfinished bonus tasks. */
 export async function getBonusTasks(): Promise<DailyTaskItem[]> {
-  await delay(200);
-
-  const currentPlan = readDailyPlan();
-  const requestsSoFar = currentPlan.bonusRequestsToday ?? 0;
-
-  if (requestsSoFar >= MAX_BONUS_REQUESTS_PER_DAY) {
-    throw new Error('Bonus task limit reached for today');
-  }
-  if (currentPlan.tasks.some((t) => !t.isCompleted)) {
-    throw new Error("Finish today's tasks before requesting a bonus task");
-  }
-
-  // Pick the next bonus definition (bonus_1, bonus_2, bonus_3)
-  const bonusId = `bonus_${requestsSoFar + 1}`;
-  const def = bonusTaskDefinitions[bonusId];
-  const lastOrder = Math.max(0, ...currentPlan.tasks.map((t) => t.order));
-
-  // Same shape as a normal unlocked task; estimatedMinutes stays hidden until done
-  const bonusTask: DailyTaskItem = {
-    id: bonusId,
-    order: lastOrder + 1,
-    title: def.title,
-    description: def.description,
-    reason: def.reason,
-    linkedTo: def.linkedTo,
-    isCompleted: false,
-    isLocked: false,
-    isBonus: true,
-  };
-
-  // Save it into today's plan so it shows up and can be completed like any task
-  const updatedPlan: DailyPlanResponse = {
-    ...currentPlan,
-    totalTasks: currentPlan.totalTasks + 1,
-    bonusRequestsToday: requestsSoFar + 1,
-    tasks: [...currentPlan.tasks, bonusTask],
-  };
-
-  writeStorage(STORAGE_KEYS.DAILY_PLAN, updatedPlan);
-  return [bonusTask];
-}
-
-/**
- * Resets the demo daily plan back to initial state
- */
-export async function resetDemoData(): Promise<DailyPlanResponse> {
-  await delay(100);
-  writeStorage(STORAGE_KEYS.DAILY_PLAN, initialDailyPlanResponse);
-  writeStorage(STORAGE_KEYS.GOALS, initialGoals);
-  writeStorage(STORAGE_KEYS.GOAL_HISTORY, initialGoalHistory);
-  writeStorage(STORAGE_KEYS.GOAL_NOTES, initialGoalNotes);
-  writeStorage(STORAGE_KEYS.FUTURE_TASKS, initialFutureTasks);
-  // Clear any active timer localStorage as well
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem('daily_path_timer_state_v1');
-  }
-  return initialDailyPlanResponse;
+  const plan = await requestBonus();
+  return plan.tasks.filter((t) => t.isBonus && !t.isCompleted);
 }
 
 // -----------------------------------------------------------------------------
-// Goals API (/api/goals)
+// Goals (/api/goals)
 // -----------------------------------------------------------------------------
 
-/**
- * List all user goals
- */
+type GoalInput = Pick<Goal, 'title' | 'details' | 'category' | 'status'>;
+
 export async function getGoals(): Promise<Goal[]> {
-  await delay(100);
-  return readStorage<Goal[]>(STORAGE_KEYS.GOALS, initialGoals);
+  return request<Goal[]>('/goals');
 }
 
-/**
- * Fetch a single goal by its id
- */
 export async function getGoal(id: string): Promise<Goal | null> {
-  await delay(80);
   const goals = await getGoals();
-  return goals.find((g) => g.id === id) || null;
+  return goals.find((g) => g.id === id) ?? null;
 }
 
-/**
- * Fetch history of completed daily to-dos linked to a specific goal
- */
-export async function getGoalHistory(
-  goalId: string
-): Promise<GoalTodoHistoryItem[]> {
-  await delay(120);
-  const historyMap = readStorage<Record<string, GoalTodoHistoryItem[]>>(
-    STORAGE_KEYS.GOAL_HISTORY,
-    initialGoalHistory
-  );
-  return historyMap[goalId] || [];
+type GoalHistoryWire = Omit<GoalTodoHistoryItem, 'goalId' | 'timeSpentSeconds'> & {
+  timeSpentMinutes?: number;
+};
+
+export async function getGoalHistory(goalId: string): Promise<GoalTodoHistoryItem[]> {
+  const items = await request<GoalHistoryWire[]>(`/goals/${goalId}/history`);
+  return items.map(({ timeSpentMinutes, ...item }) => ({
+    ...item,
+    goalId,
+    timeSpentSeconds: timeSpentMinutes !== undefined ? timeSpentMinutes * 60 : undefined,
+  }));
 }
 
-/**
- * Fetch text-based notes and reflections specifically linked to a goal
- */
+export async function addGoal(goalData: GoalInput & { completedTodoCount?: number }): Promise<Goal> {
+  const { title, details, category, status } = goalData;
+  return request<Goal>('/goals', { method: 'POST', ...json({ title, details, category, status }) });
+}
+
+/** The API replaces the whole goal, so partial updates are merged onto the current values. */
+export async function updateGoal(
+  id: string,
+  updates: Partial<Omit<Goal, 'id' | 'userId' | 'createdAt'>>
+): Promise<Goal> {
+  const current = await getGoal(id);
+  if (!current) throw new ApiError(404, 'Goal not found');
+
+  const merged = { ...current, ...updates };
+  return request<Goal>(`/goals/${id}`, {
+    method: 'PUT',
+    ...json({
+      title: merged.title,
+      details: merged.details,
+      category: merged.category,
+      status: merged.status,
+    }),
+  });
+}
+
+export async function deleteGoal(id: string): Promise<boolean> {
+  await request<void>(`/goals/${id}`, { method: 'DELETE' });
+  return true;
+}
+
+// -----------------------------------------------------------------------------
+// Goal notes
+// TODO: No backend endpoint yet. Notes are stored in this browser only.
+// -----------------------------------------------------------------------------
+
+const NOTES_KEY = 'daily_path_goal_notes_v1';
+
+   function readNotes(): Record<string, GoalNote[]> {
+     if (typeof window === 'undefined') return {};
+     try {
+       const item = localStorage.getItem(NOTES_KEY);
+       return item ? JSON.parse(item) : {};
+     } catch {
+       return {};
+     }
+   }
+
+function writeNotes(notes: Record<string, GoalNote[]>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+  } catch {
+    // Storage may be unavailable (private mode, quota). Notes are non-critical.
+  }
+}
+
 export async function getGoalNotes(goalId: string): Promise<GoalNote[]> {
-  await delay(100);
-  const notesMap = readStorage<Record<string, GoalNote[]>>(
-    STORAGE_KEYS.GOAL_NOTES,
-    initialGoalNotes
-  );
-  const notes = notesMap[goalId] || [];
-  // Sort newest first by creation timestamp
-  return [...notes].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  const notes = readNotes()[goalId] ?? [];
+  return [...notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
-/**
- * Add a new note or reflection to a specific goal
- */
-export async function addGoalNote(
-  goalId: string,
-  content: string
-): Promise<GoalNote> {
-  await delay(150);
-  const notesMap = readStorage<Record<string, GoalNote[]>>(
-    STORAGE_KEYS.GOAL_NOTES,
-    initialGoalNotes
-  );
-  const currentList = notesMap[goalId] || [];
-
-  const newNote: GoalNote = {
+export async function addGoalNote(goalId: string, content: string): Promise<GoalNote> {
+  const all = readNotes();
+  const note: GoalNote = {
     id: `note_${Date.now()}`,
     goalId,
     content: content.trim(),
     createdAt: new Date().toISOString(),
   };
-
-  const updatedMap = {
-    ...notesMap,
-    [goalId]: [newNote, ...currentList],
-  };
-
-  writeStorage(STORAGE_KEYS.GOAL_NOTES, updatedMap);
-  return newNote;
+  writeNotes({ ...all, [goalId]: [note, ...(all[goalId] ?? [])] });
+  return note;
 }
 
-/**
- * Update an existing note or reflection on a specific goal
- */
-export async function updateGoalNote(
-  goalId: string,
-  noteId: string,
-  content: string
-): Promise<GoalNote> {
-  await delay(120);
-  const notesMap = readStorage<Record<string, GoalNote[]>>(
-    STORAGE_KEYS.GOAL_NOTES,
-    initialGoalNotes
-  );
-  const currentList = notesMap[goalId] || [];
-  const index = currentList.findIndex((n) => n.id === noteId);
-  if (index === -1) {
-    throw new Error('Note not found');
-  }
+export async function updateGoalNote(goalId: string, noteId: string, content: string): Promise<GoalNote> {
+  const all = readNotes();
+  const list = all[goalId] ?? [];
+  const index = list.findIndex((n) => n.id === noteId);
+  if (index === -1) throw new Error('Note not found');
 
-  const updatedNote: GoalNote = {
-    ...currentList[index],
-    content: content.trim(),
-  };
-
-  const updatedList = [...currentList];
-  updatedList[index] = updatedNote;
-
-  const updatedMap = {
-    ...notesMap,
-    [goalId]: updatedList,
-  };
-
-  writeStorage(STORAGE_KEYS.GOAL_NOTES, updatedMap);
-  return updatedNote;
+  const updated = { ...list[index], content: content.trim() };
+  const newList = [...list];
+  newList[index] = updated;
+  writeNotes({ ...all, [goalId]: newList });
+  return updated;
 }
 
-/**
- * Delete a note from a specific goal
- */
-export async function deleteGoalNote(
-  goalId: string,
-  noteId: string
-): Promise<boolean> {
-  await delay(120);
-  const notesMap = readStorage<Record<string, GoalNote[]>>(
-    STORAGE_KEYS.GOAL_NOTES,
-    initialGoalNotes
-  );
-  const currentList = notesMap[goalId] || [];
-  const filtered = currentList.filter((n) => n.id !== noteId);
-
-  const updatedMap = {
-    ...notesMap,
-    [goalId]: filtered,
-  };
-
-  writeStorage(STORAGE_KEYS.GOAL_NOTES, updatedMap);
-  return true;
-}
-
-/**
- * Add a new goal
- */
-export async function addGoal(
-  goalData: Omit<Goal, 'id' | 'userId' | 'createdAt' | 'completedTodoCount'> & {
-    completedTodoCount?: number;
-  }
-): Promise<Goal> {
-  await delay(150);
-  const currentGoals = await getGoals();
-  const user = await getCurrentUser();
-
-  const newGoal: Goal = {
-    ...goalData,
-    completedTodoCount: goalData.completedTodoCount ?? 0,
-    id: `g_${Date.now()}`,
-    userId: user.id,
-    createdAt: new Date().toISOString(),
-  };
-
-  const updated = [newGoal, ...currentGoals];
-  writeStorage(STORAGE_KEYS.GOALS, updated);
-  return newGoal;
-}
-
-/**
- * Update an existing goal
- */
-export async function updateGoal(
-  id: string,
-  updates: Partial<Omit<Goal, 'id' | 'userId' | 'createdAt'>>
-): Promise<Goal> {
-  await delay(150);
-  const currentGoals = await getGoals();
-  const index = currentGoals.findIndex((g) => g.id === id);
-  if (index === -1) {
-    throw new Error('Goal not found');
-  }
-
-  const updatedGoal: Goal = {
-    ...currentGoals[index],
-    ...updates,
-  };
-
-  currentGoals[index] = updatedGoal;
-  writeStorage(STORAGE_KEYS.GOALS, currentGoals);
-  return updatedGoal;
-}
-
-/**
- * Delete a goal
- */
-export async function deleteGoal(id: string): Promise<boolean> {
-  await delay(150);
-  const currentGoals = await getGoals();
-  const filtered = currentGoals.filter((g) => g.id !== id);
-  writeStorage(STORAGE_KEYS.GOALS, filtered);
+export async function deleteGoalNote(goalId: string, noteId: string): Promise<boolean> {
+  const all = readNotes();
+  writeNotes({ ...all, [goalId]: (all[goalId] ?? []).filter((n) => n.id !== noteId) });
   return true;
 }
 
 // -----------------------------------------------------------------------------
-// Future Tasks API (/api/future-tasks)
+// Future tasks (/api/future-tasks)
 // -----------------------------------------------------------------------------
 
-/**
- * List all future tasks:
- * - Pending tasks first, sorted by due date ascending
- * - Done tasks at the bottom, sorted by most recently completed first (or dueDate/createdAt)
- */
+type FutureTaskWire = Omit<FutureTask, 'hoursDone'>;
+
+const toFutureTask = (t: FutureTaskWire): FutureTask => ({
+  ...t,
+  hoursDone: Math.round((t.timeSpentMinutes / 60) * 100) / 100,
+});
+
+type FutureTaskInput = Omit<
+  FutureTask,
+  'id' | 'userId' | 'createdAt' | 'status' | 'hoursDone' | 'timeSpentMinutes' | 'estimateSource' | 'completedAt'
+>;
+
+function toFutureTaskBody(t: FutureTaskInput & { status?: FutureTask['status'] }) {
+  return {
+    title: t.title,
+    type: t.type,
+    dueDate: t.dueDate,
+    weight: t.weight,
+    size: t.size,
+    estimatedHours: t.estimatedHours,
+    materials: t.materials,
+    status: t.status ?? 'pending',
+  };
+}
+
+/** Pending tasks first by due date, then done tasks, most recent first (sorted by the API). */
 export async function getFutureTasks(): Promise<FutureTask[]> {
-  await delay(100);
-  const tasks = readStorage<FutureTask[]>(
-    STORAGE_KEYS.FUTURE_TASKS,
-    initialFutureTasks
-  );
-
-  const pending = tasks
-    .filter((t) => t.status !== 'done')
-    .sort(
-      (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-    );
-
-  const done = tasks
-    .filter((t) => t.status === 'done')
-    .sort((a, b) => {
-      const aTime = a.completedAt
-        ? new Date(a.completedAt).getTime()
-        : new Date(a.dueDate || a.createdAt).getTime();
-      const bTime = b.completedAt
-        ? new Date(b.completedAt).getTime()
-        : new Date(b.dueDate || b.createdAt).getTime();
-      return bTime - aTime;
-    });
-
-  return [...pending, ...done];
+  const tasks = await request<FutureTaskWire[]>('/future-tasks');
+  return tasks.map(toFutureTask);
 }
 
-/**
- * Add a new future task
- */
-export async function addFutureTask(
-  taskData: Omit<FutureTask, 'id' | 'userId' | 'createdAt' | 'status' | 'hoursDone'> & {
-    hoursDone?: number;
-  }
-): Promise<FutureTask> {
-  await delay(150);
-  const currentTasks = readStorage<FutureTask[]>(
-    STORAGE_KEYS.FUTURE_TASKS,
-    initialFutureTasks
+export async function addFutureTask(taskData: FutureTaskInput & { hoursDone?: number }): Promise<FutureTask> {
+  return toFutureTask(
+    await request<FutureTaskWire>('/future-tasks', { method: 'POST', ...json(toFutureTaskBody(taskData)) })
   );
-  const user = await getCurrentUser();
-
-  const newTask: FutureTask = {
-    ...taskData,
-    hoursDone: taskData.hoursDone ?? 0,
-    id: `ft_${Date.now()}`,
-    userId: user.id,
-    status: 'pending',
-    createdAt: new Date().toISOString(),
-  };
-
-  const updated = [...currentTasks, newTask];
-  writeStorage(STORAGE_KEYS.FUTURE_TASKS, updated);
-  return newTask;
 }
 
-/**
- * Update a future task
- */
+/** The API replaces the whole task, so partial updates are merged onto the current values. */
 export async function updateFutureTask(
   id: string,
   updates: Partial<Omit<FutureTask, 'id' | 'userId' | 'createdAt'>>
 ): Promise<FutureTask> {
-  await delay(150);
-  const currentTasks = readStorage<FutureTask[]>(
-    STORAGE_KEYS.FUTURE_TASKS,
-    initialFutureTasks
+  const current = (await getFutureTasks()).find((t) => t.id === id);
+  if (!current) throw new ApiError(404, 'Task not found');
+
+  return toFutureTask(
+    await request<FutureTaskWire>(`/future-tasks/${id}`, {
+      method: 'PUT',
+      ...json(toFutureTaskBody({ ...current, ...updates })),
+    })
   );
-  const index = currentTasks.findIndex((t) => t.id === id);
-  if (index === -1) {
-    throw new Error('Task not found');
-  }
-
-  const updatedTask: FutureTask = {
-    ...currentTasks[index],
-    ...updates,
-  };
-
-  currentTasks[index] = updatedTask;
-  writeStorage(STORAGE_KEYS.FUTURE_TASKS, currentTasks);
-  return updatedTask;
 }
 
-/**
- * Delete a future task
- */
 export async function deleteFutureTask(id: string): Promise<boolean> {
-  await delay(150);
-  const currentTasks = readStorage<FutureTask[]>(
-    STORAGE_KEYS.FUTURE_TASKS,
-    initialFutureTasks
-  );
-  const filtered = currentTasks.filter((t) => t.id !== id);
-  writeStorage(STORAGE_KEYS.FUTURE_TASKS, filtered);
+  await request<void>(`/future-tasks/${id}`, { method: 'DELETE' });
   return true;
 }
 
 // -----------------------------------------------------------------------------
-// Auth & User API (/api/auth)
+// Auth (/api/auth)
 // -----------------------------------------------------------------------------
 
-/**
- * Get the currently logged-in user
- */
+/** Returns the signed-in user. Fields the API does not provide yet are filled with defaults. */
 export async function getCurrentUser(): Promise<User> {
-  return readStorage<User>(STORAGE_KEYS.USER, initialUser);
-}
-
-/**
- * Mock login
- */
-export async function login(
-  email: string,
-  _password: string
-): Promise<{ user: User; token: string }> {
-  await delay(200);
-  const user: User = {
-    ...initialUser,
-    email: email || initialUser.email,
+  const info = await request<{ email: string }>('/auth/manage/info');
+  return {
+    id: '',
+    email: info.email,
+    name: info.email.split('@')[0],
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Toronto',
+    createdAt: '',
   };
-  writeStorage(STORAGE_KEYS.USER, user);
-  writeStorage(STORAGE_KEYS.AUTH_TOKEN, 'mock_jwt_token_daily_path_123');
-  return { user, token: 'mock_jwt_token_daily_path_123' };
 }
 
-/**
- * Mock register
- */
+/** Signs in with an HttpOnly session cookie. The token field is kept for compatibility. */
+export async function login(email: string, password: string): Promise<{ user: User; token: string }> {
+  await request<void>('/auth/login?useCookies=true', { method: 'POST', ...json({ email, password }) });
+  return { user: await getCurrentUser(), token: '' };
+}
+
+/** Creates an account, then signs in. Name is not stored by the API yet. */
 export async function register(
   email: string,
-  _password: string,
-  name?: string
+  password: string,
+  _name?: string
 ): Promise<{ user: User; token: string }> {
-  await delay(200);
-  const user: User = {
-    id: `usr_${Date.now()}`,
-    email,
-    name: name || email.split('@')[0],
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Toronto',
-    hoursPerDay: 4,
-    createdAt: new Date().toISOString(),
-  };
-  writeStorage(STORAGE_KEYS.USER, user);
-  writeStorage(STORAGE_KEYS.AUTH_TOKEN, 'mock_jwt_token_daily_path_123');
-  return { user, token: 'mock_jwt_token_daily_path_123' };
+  await request<void>('/auth/register', { method: 'POST', ...json({ email, password }) });
+  return login(email, password);
 }
 
-/**
- * Mock logout
- */
 export async function logout(): Promise<void> {
-  await delay(100);
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-  }
+  await request<void>('/auth/logout', { method: 'POST' });
 }

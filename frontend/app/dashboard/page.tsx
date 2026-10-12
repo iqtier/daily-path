@@ -10,7 +10,7 @@ import BonusTimeCard from '@/components/BonusTimeCard';
 import {
   getToday,
   completeTask,
-  resetDemoData,
+
   addGoal,
   addFutureTask,
   getBonusTasks,
@@ -89,14 +89,7 @@ export default function DashboardPage() {
   };
 
   // Reset demo handler
-  const handleReset = async () => {
-    try {
-      const reset = await resetDemoData();
-      setPlan(reset);
-    } catch (err) {
-      console.error('Failed to reset demo:', err);
-    }
-  };
+
 
   // Quick Goal creation from dashboard
   const handleSaveGoal = async (goalData: {
@@ -188,7 +181,7 @@ export default function DashboardPage() {
       <Navbar
         onOpenNewGoal={() => setIsGoalModalOpen(true)}
         onOpenNewTask={() => setIsTaskModalOpen(true)}
-        onResetDemo={handleReset}
+       
       />
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 space-y-6">
@@ -241,7 +234,7 @@ export default function DashboardPage() {
         {isAllDone && (
           <CompletionCelebration
             totalTasks={plan?.totalTasks ?? 4}
-            onReset={handleReset}
+            
           />
         )}
 

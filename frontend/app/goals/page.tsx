@@ -11,7 +11,7 @@ import {
   updateGoal,
   deleteGoal,
   addFutureTask,
-  resetDemoData,
+
 } from '@/lib/api';
 import {
   Goal,
@@ -127,7 +127,7 @@ export default function GoalsPage() {
   };
 
   const handleReset = async () => {
-    await resetDemoData();
+  
     await loadGoals();
   };
 
@@ -179,17 +179,7 @@ export default function GoalsPage() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setEditingGoal(null);
-              setIsModalOpen(true);
-            }}
-            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-white bg-stone-900 hover:bg-stone-800 px-4 py-2 rounded-xl transition-all shadow-xs self-start sm:self-auto cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Goal</span>
-          </button>
+    
         </div>
 
         {/* Filter Tabs */}
