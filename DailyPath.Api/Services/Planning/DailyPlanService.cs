@@ -36,29 +36,48 @@ public record BonusInput(
     List<YesterdayInput> TodaysTasks
 );
 
+/// <summary>Per-request planning settings for the authenticated user.</summary>
+public record PlanningContext(Guid UserId, DateOnly Today, decimal DefaultHoursPerDay);
+
 public class DailyPlanService(
     AppDbContext db,
     IGeminiClient gemini,
+    ICurrentUser currentUser,
     ILogger<DailyPlanService> logger
 )
 {
-    // Placeholders until user accounts and settings exist.
-    public static readonly Guid TempUserId = Guid.Parse("00000000-0000-0000-0000-000000000001");
-    public const decimal DefaultHoursPerDay = 3m;
-    private static readonly TimeZoneInfo TempUserTimeZone = TimeZoneInfo.FindSystemTimeZoneById(
-        "America/Toronto"
-    );
-
     // Caps AI cost per user per day.
     public const int MaxBonusRequests = 3;
     public const int MinBonusMinutes = 10;
     private const int MaxBonusTasks = 2;
 
+    private const string FallbackTimeZoneId = "America/Toronto";
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    /// <summary>Today's date in the user's time zone, not the server's.</summary>
-    public static DateOnly GetUserToday() =>
-        DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TempUserTimeZone));
+    private PlanningContext? _context;
+
+    /// <summary>
+    /// Loads the user's id, local date, and default hours. Cached for the rest of the request.
+    /// </summary>
+    public async Task<PlanningContext> GetContextAsync(CancellationToken ct = default)
+    {
+        if (_context is not null)
+            return _context;
+
+        var userId = currentUser.Id;
+        var user =
+            await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct)
+            ?? throw new InvalidOperationException("Authenticated user not found.");
+
+        var zone = TimeZoneInfo.TryFindSystemTimeZoneById(user.TimeZoneId, out var found)
+            ? found
+            : TimeZoneInfo.FindSystemTimeZoneById(FallbackTimeZoneId);
+
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zone));
+
+        return _context = new PlanningContext(userId, today, user.DefaultHoursPerDay);
+    }
 
     /// <summary>Available minutes left today, based on actual time spent where recorded.</summary>
     public static int GetRemainingMinutes(DailyPlan plan)
@@ -74,15 +93,16 @@ public class DailyPlanService(
         return Math.Max(0, (int)(plan.HoursAvailable * 60) - usedMinutes);
     }
 
-    public Task<DailyPlan?> GetTodayAsync(CancellationToken ct = default)
+    public async Task<DailyPlan?> GetTodayAsync(CancellationToken ct = default)
     {
-        var today = GetUserToday();
-        return db
+        var ctx = await GetContextAsync(ct);
+
+        return await db
             .DailyPlans.Include(p => p.Tasks)
                 .ThenInclude(t => t.Goal)
             .Include(p => p.Tasks)
                 .ThenInclude(t => t.FutureTask)
-            .FirstOrDefaultAsync(p => p.UserId == TempUserId && p.Date == today, ct);
+            .FirstOrDefaultAsync(p => p.UserId == ctx.UserId && p.Date == ctx.Today, ct);
     }
 
     /// <summary>
@@ -97,21 +117,27 @@ public class DailyPlanService(
         if (existing is not null)
             return existing;
 
-        var today = GetUserToday();
-        var (goals, ranked) = await LoadPlanningContextAsync(today, ct);
+        var ctx = await GetContextAsync(ct);
+        var (goals, ranked) = await LoadInputsAsync(ctx, ct);
 
         if (goals.Count == 0 && ranked.Count == 0)
             throw new NothingToPlanException();
 
-        var yesterday = today.AddDays(-1);
+        var yesterday = ctx.Today.AddDays(-1);
         var yesterdayTasks = await db
             .DailyTasks.Where(t =>
-                t.DailyPlan.UserId == TempUserId && t.DailyPlan.Date == yesterday
+                t.DailyPlan.UserId == ctx.UserId && t.DailyPlan.Date == yesterday
             )
             .OrderBy(t => t.Order)
             .ToListAsync(ct);
 
-        var built = PlanInputBuilder.Build(today, hoursAvailable, goals, ranked, yesterdayTasks);
+        var built = PlanInputBuilder.Build(
+            ctx.Today,
+            hoursAvailable,
+            goals,
+            ranked,
+            yesterdayTasks
+        );
         var inputJson = JsonSerializer.Serialize(built.Input, JsonOptions);
 
         var aiResult = await gemini.GenerateJsonAsync(
@@ -130,8 +156,8 @@ public class DailyPlanService(
 
         var plan = new DailyPlan
         {
-            UserId = TempUserId,
-            Date = today,
+            UserId = ctx.UserId,
+            Date = ctx.Today,
             HoursAvailable = hoursAvailable,
             Tasks = validation.Tasks.Select(ToDailyTask).ToList(),
         };
@@ -202,7 +228,8 @@ public class DailyPlanService(
         if (remainingMinutes < MinBonusMinutes)
             return (BonusOutcome.NotEnoughTime, plan);
 
-        var (goals, ranked) = await LoadPlanningContextAsync(plan.Date, ct);
+        var ctx = await GetContextAsync(ct);
+        var (goals, ranked) = await LoadInputsAsync(ctx, ct);
         var todaysTasks = plan.Tasks.OrderBy(t => t.Order).ToList();
 
         var built = PlanInputBuilder.Build(
@@ -255,22 +282,22 @@ public class DailyPlanService(
         return (BonusOutcome.Added, await GetTodayAsync(ct));
     }
 
-    private async Task<(List<Goal> Goals, List<PrioritizedTask> Ranked)> LoadPlanningContextAsync(
-        DateOnly today,
+    private async Task<(List<Goal> Goals, List<PrioritizedTask> Ranked)> LoadInputsAsync(
+        PlanningContext ctx,
         CancellationToken ct
     )
     {
         var goals = await db
-            .Goals.Where(g => g.UserId == TempUserId && g.Status == GoalStatus.Active)
+            .Goals.Where(g => g.UserId == ctx.UserId && g.Status == GoalStatus.Active)
             .OrderBy(g => g.CreatedAt)
             .ToListAsync(ct);
 
         var futureTasks = await db
-            .FutureTasks.Where(t => t.UserId == TempUserId && t.Status == FutureTaskStatus.Pending)
+            .FutureTasks.Where(t => t.UserId == ctx.UserId && t.Status == FutureTaskStatus.Pending)
             .ToListAsync(ct);
 
-        var secondsSpent = await db.GetSecondsSpentByFutureTaskAsync(TempUserId, ct);
-        var ranked = TaskPrioritizer.Rank(futureTasks, secondsSpent, today);
+        var secondsSpent = await db.GetSecondsSpentByFutureTaskAsync(ctx.UserId, ct);
+        var ranked = TaskPrioritizer.Rank(futureTasks, secondsSpent, ctx.Today);
 
         return (goals, ranked);
     }

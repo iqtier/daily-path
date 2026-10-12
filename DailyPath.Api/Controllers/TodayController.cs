@@ -2,12 +2,14 @@ using DailyPath.Api.Dtos;
 using DailyPath.Api.Models;
 using DailyPath.Api.Services.Gemini;
 using DailyPath.Api.Services.Planning;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace DailyPath.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/today")]
 public class TodayController(DailyPlanService plans, ILogger<TodayController> logger)
     : ControllerBase
@@ -16,7 +18,7 @@ public class TodayController(DailyPlanService plans, ILogger<TodayController> lo
     public async Task<ActionResult<TodayResponse>> Get(CancellationToken ct)
     {
         var plan = await plans.GetTodayAsync(ct);
-        return Ok(ToResponse(plan));
+        return Ok(await ToResponseAsync(plan, ct));
     }
 
     [HttpPost]
@@ -28,7 +30,7 @@ public class TodayController(DailyPlanService plans, ILogger<TodayController> lo
         try
         {
             var plan = await plans.GenerateTodayAsync(req.HoursAvailable, ct);
-            return Ok(ToResponse(plan));
+            return Ok(await ToResponseAsync(plan, ct));
         }
         catch (NothingToPlanException ex)
         {
@@ -55,7 +57,7 @@ public class TodayController(DailyPlanService plans, ILogger<TodayController> lo
             CompleteOutcome.NotCurrentTask => BadRequest(
                 new { error = "Only the current task can be completed." }
             ),
-            _ => Ok(ToResponse(plan)),
+            _ => Ok(await ToResponseAsync(plan, ct)),
         };
     }
 
@@ -79,7 +81,7 @@ public class TodayController(DailyPlanService plans, ILogger<TodayController> lo
                 BonusOutcome.NotEnoughTime => UnprocessableEntity(
                     new { error = "Not enough time left for a bonus task." }
                 ),
-                _ => Ok(ToResponse(plan)),
+                _ => Ok(await ToResponseAsync(plan, ct)),
             };
         }
         catch (Exception ex) when (ex is GeminiException or PlanValidationException)
@@ -107,16 +109,17 @@ public class TodayController(DailyPlanService plans, ILogger<TodayController> lo
         );
     }
 
-    private static TodayResponse ToResponse(DailyPlan? plan)
+    private async Task<TodayResponse> ToResponseAsync(DailyPlan? plan, CancellationToken ct)
     {
-        var date = (plan?.Date ?? DailyPlanService.GetUserToday()).ToString("yyyy-MM-dd");
+        var ctx = await plans.GetContextAsync(ct);
+        var date = ctx.Today.ToString("yyyy-MM-dd");
 
         if (plan is null)
         {
             return new TodayResponse(
                 date,
                 false,
-                DailyPlanService.DefaultHoursPerDay,
+                ctx.DefaultHoursPerDay,
                 null,
                 0,
                 0,
@@ -167,7 +170,7 @@ public class TodayController(DailyPlanService plans, ILogger<TodayController> lo
         return new TodayResponse(
             date,
             true,
-            DailyPlanService.DefaultHoursPerDay,
+            ctx.DefaultHoursPerDay,
             plan.HoursAvailable,
             ordered.Count,
             ordered.Count(t => t.IsCompleted),

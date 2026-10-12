@@ -4,6 +4,7 @@
 @task3 = b65b0810-00df-4d42-9e68-2866decf6d27
 @fitGoalId = 288612b4-242f-418e-8181-4360d7ce7776
 @auth = Bearer {{login.response.body.accessToken}}
+@auth2 = Bearer {{login2.response.body.accessToken}}
 ### Add a goal
 POST {{baseUrl}}/api/goals
 Content-Type: application/json
@@ -126,9 +127,10 @@ GET {{baseUrl}}/api/dev/gemini-ping
 
 ### Today: get
 GET {{baseUrl}}/api/today
-
+Authorization: {{auth}}
 ### Today: generate
 POST {{baseUrl}}/api/today
+Authorization: {{auth}}
 Content-Type: application/json
 
 {
@@ -154,7 +156,7 @@ GET {{baseUrl}}/api/goals/{{fitGoalId}}/history
 
 ### Today: bonus
 POST {{baseUrl}}/api/today/bonus
-
+Authorization: {{auth}}
 
 ### Auth: register
 POST {{baseUrl}}/api/auth/register
@@ -199,3 +201,46 @@ Content-Type: application/json
   "email": "short@test.local",
   "password": "abc123"
 }
+
+
+### Attacker: register
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "attacker@test.local",
+  "password": "attacker long password"
+}
+
+### Attacker: login
+# @name login2
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "attacker@test.local",
+  "password": "attacker long password"
+}
+
+### Attacker: list goals
+GET {{baseUrl}}/api/goals
+Authorization: {{auth2}}
+
+### Attacker: read your goal history
+GET {{baseUrl}}/api/goals/288612b4-242f-418e-8181-4360d7ce7776/history
+Authorization: {{auth2}}
+
+### Attacker: edit your goal
+PUT {{baseUrl}}/api/goals/288612b4-242f-418e-8181-4360d7ce7776
+Authorization: {{auth2}}
+Content-Type: application/json
+
+{
+  "title": "Hacked",
+  "category": "other",
+  "status": "paused"
+}
+
+### Attacker: delete your goal
+DELETE {{baseUrl}}/api/goals/288612b4-242f-418e-8181-4360d7ce7776
+Authorization: {{auth2}}
