@@ -17,6 +17,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default"))
 );
+
+builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>("database");
 builder.Services.AddAuthorization();
 builder
     .Services.AddIdentityApiEndpoints<AppUser>(options =>
@@ -76,6 +78,7 @@ builder.Services.ConfigureApplicationCookie(options =>
         return Task.CompletedTask;
     };
 });
+
 builder.Services.AddScoped<DailyPlanService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
@@ -86,6 +89,7 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+app.MapHealthChecks("/health").AllowAnonymous();
 app.MapGroup("/api/auth").MapIdentityApi<AppUser>();
 app.MapPost(
         "/api/auth/logout",
