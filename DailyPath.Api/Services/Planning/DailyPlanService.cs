@@ -114,8 +114,15 @@ public class DailyPlanService(
     )
     {
         var existing = await GetTodayAsync(ct);
-        if (existing is not null)
+        if (existing is { Tasks.Count: > 0 })
             return existing;
+
+        // A plan loses all its tasks when their goals or future tasks are deleted.
+        if (existing is not null)
+        {
+            db.DailyPlans.Remove(existing);
+            await db.SaveChangesAsync(ct);
+        }
 
         var ctx = await GetContextAsync(ct);
         var (goals, ranked) = await LoadInputsAsync(ctx, ct);

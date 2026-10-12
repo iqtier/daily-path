@@ -114,7 +114,7 @@ public class TodayController(DailyPlanService plans, ILogger<TodayController> lo
         var ctx = await plans.GetContextAsync(ct);
         var date = ctx.Today.ToString("yyyy-MM-dd");
 
-        if (plan is null)
+        if (plan is null || plan.Tasks.Count == 0)
         {
             return new TodayResponse(
                 date,
