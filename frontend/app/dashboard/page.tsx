@@ -44,18 +44,29 @@ export default function DashboardPage() {
   const [isFetchingBonus, setIsFetchingBonus] = useState(false);
   const [justFinishedDay, setJustFinishedDay] = useState(false);
 
-  const loadToday = useCallback(async () => {
+  // State is only set inside promise callbacks, after the request settles, so the effect
+  // below never updates state synchronously.
+  const loadToday = useCallback(
+    () =>
+      getToday()
+        .then((data) => {
+          setPlan(data);
+          setLoadFailed(false);
+        })
+        .catch((err) => {
+          console.error('Failed to load daily plan:', err);
+          setLoadFailed(true);
+        })
+        .finally(() => setIsLoading(false)),
+    []
+  );
+
+  // The retry button shows the spinner again; that reset belongs in the event handler, not the loader.
+  const handleRetryLoad = () => {
     setIsLoading(true);
     setLoadFailed(false);
-    try {
-      setPlan(await getToday());
-    } catch (err) {
-      console.error('Failed to load daily plan:', err);
-      setLoadFailed(true);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    void loadToday();
+  };
 
   useEffect(() => {
     void loadToday();
@@ -206,7 +217,7 @@ export default function DashboardPage() {
               <p className="text-sm text-ink-muted">Check your connection, then give it another go.</p>
               <button
                 type="button"
-                onClick={() => void loadToday()}
+                onClick={handleRetryLoad}
                 className="inline-flex items-center gap-1.5 text-sm font-extrabold text-canvas bg-ink px-4 py-2.5 rounded-2xl"
               >
                 <RotateCw className="w-4 h-4" />

@@ -46,6 +46,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
 
   if (res.status === 401 && !path.startsWith('/auth/') && typeof window !== 'undefined') {
+    // Full reload on session expiry clears all in-memory user state; the router is unavailable outside components.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = '/login';
   }
 

@@ -38,9 +38,9 @@ export default function DaySetup({ date, defaultHours, onGenerated }: DaySetupPr
     day: 'numeric',
   });
 
+  // Only advances the line while generating; the reset to the first line happens in handleGenerate.
   useEffect(() => {
     if (!loading) return;
-    setLineIndex(0);
     const id = window.setInterval(
       () => setLineIndex((i) => (i + 1) % BUILDING_LINES.length),
       2600
@@ -49,6 +49,8 @@ export default function DaySetup({ date, defaultHours, onGenerated }: DaySetupPr
   }, [loading]);
 
   async function handleGenerate() {
+    // A retry after an error should start again from the first message.
+    setLineIndex(0);
     setLoading(true);
     setError(null);
     try {

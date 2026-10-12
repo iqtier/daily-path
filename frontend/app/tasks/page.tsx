@@ -59,21 +59,32 @@ export default function TasksPage() {
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<FutureTask | null>(null);
 
-  const loadData = useCallback(async () => {
-    try {
-      setTasks(await getFutureTasks());
-      setLoadFailed(false);
-    } catch (err) {
-      console.error('Failed to load tasks:', err);
-      setLoadFailed(true);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  // State is only set inside promise callbacks, after the request settles, so this is safe to
+  // start from an effect and to reuse for quiet refreshes after adding, editing, or completing a task.
+  const loadData = useCallback(
+    () =>
+      getFutureTasks()
+        .then((data) => {
+          setTasks(data);
+          setLoadFailed(false);
+        })
+        .catch((err) => {
+          console.error('Failed to load tasks:', err);
+          setLoadFailed(true);
+        })
+        .finally(() => setIsLoading(false)),
+    []
+  );
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  const handleRetryLoad = () => {
+    setIsLoading(true);
+    setLoadFailed(false);
+    void loadData();
+  };
 
   const openNewTask = () => {
     setEditingTask(null);
@@ -166,7 +177,7 @@ export default function TasksPage() {
             title="Your tasks didn't load"
             body="Check your connection, then try again."
             action={
-              <button type="button" onClick={() => void loadData()} className={primaryButtonClass}>
+              <button type="button" onClick={handleRetryLoad} className={primaryButtonClass}>
                 Try again
               </button>
             }

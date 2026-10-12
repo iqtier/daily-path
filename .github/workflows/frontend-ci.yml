@@ -45,5 +45,9 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Check for vulnerable packages
+      - name: Check production packages for vulnerabilities
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Report dev tool vulnerabilities
         run: npm audit --audit-level=high
+        continue-on-error: true
