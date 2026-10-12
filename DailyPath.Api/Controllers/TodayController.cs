@@ -34,21 +34,9 @@ public class TodayController(DailyPlanService plans, ILogger<TodayController> lo
         {
             return UnprocessableEntity(new { error = ex.Message });
         }
-        catch (GeminiUnavailableException ex)
-        {
-            logger.LogWarning(ex, "Plan generation unavailable");
-            return StatusCode(
-                503,
-                new { error = "Couldn't build today's list right now. Try again in a minute." }
-            );
-        }
         catch (Exception ex) when (ex is GeminiException or PlanValidationException)
         {
-            logger.LogError(ex, "Plan generation produced an unusable result");
-            return StatusCode(
-                502,
-                new { error = "Something went wrong building today's list. Try again." }
-            );
+            return AiFailure(ex);
         }
     }
 
@@ -71,11 +59,60 @@ public class TodayController(DailyPlanService plans, ILogger<TodayController> lo
         };
     }
 
+    [HttpPost("bonus")]
+    public async Task<ActionResult<TodayResponse>> AddBonus(CancellationToken ct)
+    {
+        try
+        {
+            var (outcome, plan) = await plans.AddBonusTasksAsync(ct);
+
+            return outcome switch
+            {
+                BonusOutcome.NoPlan => NotFound(new { error = "No plan for today yet." }),
+                BonusOutcome.TasksRemaining => Conflict(
+                    new { error = "Finish today's tasks first." }
+                ),
+                BonusOutcome.LimitReached => StatusCode(
+                    429,
+                    new { error = "That's it for today. Great work." }
+                ),
+                BonusOutcome.NotEnoughTime => UnprocessableEntity(
+                    new { error = "Not enough time left for a bonus task." }
+                ),
+                _ => Ok(ToResponse(plan)),
+            };
+        }
+        catch (Exception ex) when (ex is GeminiException or PlanValidationException)
+        {
+            return AiFailure(ex);
+        }
+    }
+
+    // Internal details go to the log only; the client gets a generic message.
+    private ObjectResult AiFailure(Exception ex)
+    {
+        if (ex is GeminiUnavailableException)
+        {
+            logger.LogWarning(ex, "AI unavailable");
+            return StatusCode(
+                503,
+                new { error = "Couldn't reach the planner right now. Try again in a minute." }
+            );
+        }
+
+        logger.LogError(ex, "AI produced an unusable result");
+        return StatusCode(
+            502,
+            new { error = "Something went wrong building your tasks. Try again." }
+        );
+    }
+
     private static TodayResponse ToResponse(DailyPlan? plan)
     {
         var date = (plan?.Date ?? DailyPlanService.GetUserToday()).ToString("yyyy-MM-dd");
 
         if (plan is null)
+        {
             return new TodayResponse(
                 date,
                 false,
@@ -83,8 +120,11 @@ public class TodayController(DailyPlanService plans, ILogger<TodayController> lo
                 null,
                 0,
                 0,
+                null,
+                DailyPlanService.MaxBonusRequests,
                 []
             );
+        }
 
         var ordered = plan.Tasks.OrderBy(t => t.Order).ToList();
         var currentId = ordered.FirstOrDefault(t => !t.IsCompleted)?.Id;
@@ -131,6 +171,8 @@ public class TodayController(DailyPlanService plans, ILogger<TodayController> lo
             plan.HoursAvailable,
             ordered.Count,
             ordered.Count(t => t.IsCompleted),
+            DailyPlanService.GetRemainingMinutes(plan),
+            Math.Max(0, DailyPlanService.MaxBonusRequests - plan.BonusRequestCount),
             tasks
         );
     }

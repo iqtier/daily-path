@@ -1,6 +1,6 @@
 @baseUrl = http://localhost:5173
 @goalId = 8bca05d5-183a-4e3f-b154-74501d7cdc7a
-@task1 =418533e2-bc6c-46c3-98d1-ba3ff42abe2c
+@task1 =63ca16de-2818-4a38-8899-f454e4e7b6f2
 @task3 = b65b0810-00df-4d42-9e68-2866decf6d27
 @fitGoalId = 288612b4-242f-418e-8181-4360d7ce7776
 ### Add a goal
@@ -148,8 +148,6 @@ Content-Type: application/json
 
 ### Goal history
 GET {{baseUrl}}/api/goals/{{fitGoalId}}/history
-### Cleanup: delete duplicate Math midterm
-DELETE {{baseUrl}}/api/future-tasks/9469960f-7d11-4d26-bb17-dde9aab2c58a
 
-### Cleanup: delete duplicate Research report
-DELETE {{baseUrl}}/api/future-tasks/6a65ae43-dd16-4414-9ea1-f09085b9d33e
+### Today: bonus
+POST {{baseUrl}}/api/today/bonus
