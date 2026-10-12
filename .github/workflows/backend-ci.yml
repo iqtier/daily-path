@@ -8,10 +8,7 @@ on:
       - "DailyPath.Api.Tests/**"
       - ".github/workflows/backend-ci.yml"
   pull_request:
-    paths:
-      - "DailyPath.Api/**"
-      - "DailyPath.Api.Tests/**"
-      - ".github/workflows/backend-ci.yml"
+   
 
 permissions:
   contents: read
