@@ -24,4 +24,18 @@ public static class ProgressQueries
                 Seconds = g.Sum(t => t.TimeSpentSeconds ?? t.EstimatedMinutes * 60),
             })
             .ToDictionaryAsync(x => x.Id, x => x.Seconds, ct);
+
+    /// <summary>Number of completed daily tasks per goal for a user.</summary>
+    public static Task<Dictionary<Guid, int>> GetCompletedTodoCountByGoalAsync(
+        this AppDbContext db,
+        Guid userId,
+        CancellationToken ct = default
+    ) =>
+        db
+            .DailyTasks.Where(t =>
+                t.DailyPlan.UserId == userId && t.IsCompleted && t.GoalId != null
+            )
+            .GroupBy(t => t.GoalId!.Value)
+            .Select(g => new { Id = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Id, x => x.Count, ct);
 }

@@ -1,6 +1,7 @@
 @baseUrl = http://localhost:5173
-@goalId = 1f696c83-18d8-48a3-9680-0dea6b55e9da
-
+@goalId = 8bca05d5-183a-4e3f-b154-74501d7cdc7a
+@task1 =418533e2-bc6c-46c3-98d1-ba3ff42abe2c
+@task3 = b65b0810-00df-4d42-9e68-2866decf6d27
 ### Add a goal
 POST {{baseUrl}}/api/goals
 Content-Type: application/json
@@ -127,11 +128,10 @@ POST {{baseUrl}}/api/today
 Content-Type: application/json
 
 {
-  "hoursAvailable": 2
+  "hoursAvailable": 5
 }
 
-@task1 = a2d184de-c4ba-486c-83b9-130c079ccb1c
-@task3 = b65b0810-00df-4d42-9e68-2866decf6d27
+
 
 ### Today: try to skip ahead (should fail)
 POST {{baseUrl}}/api/today/tasks/{{task3}}/complete
@@ -143,3 +143,9 @@ Content-Type: application/json
 {
   "timeSpentSeconds": 1500
 }
+
+### Cleanup: delete duplicate Math midterm
+DELETE {{baseUrl}}/api/future-tasks/9469960f-7d11-4d26-bb17-dde9aab2c58a
+
+### Cleanup: delete duplicate Research report
+DELETE {{baseUrl}}/api/future-tasks/6a65ae43-dd16-4414-9ea1-f09085b9d33e
