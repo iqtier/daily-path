@@ -151,3 +151,48 @@ GET {{baseUrl}}/api/goals/{{fitGoalId}}/history
 
 ### Today: bonus
 POST {{baseUrl}}/api/today/bonus
+
+
+### Auth: register
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "iqtier@test.local",
+  "password": "blue coffee mountain"
+}
+
+### Auth: login
+# @name login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "iqtier@test.local",
+  "password": "blue coffee mountain"
+}
+
+### Auth: who am I
+GET {{baseUrl}}/api/auth/manage/info
+Authorization: Bearer {{login.response.body.accessToken}}
+
+### Auth: no token (should fail)
+GET {{baseUrl}}/api/auth/manage/info
+
+### Auth: wrong password (should fail)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "iqtier@test.local",
+  "password": "wrong password here"
+}
+
+### Auth: short password (should fail)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "short@test.local",
+  "password": "abc123"
+}

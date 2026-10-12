@@ -1,10 +1,13 @@
 using DailyPath.Api.Models;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace DailyPath.Api.Data;
 
 // The (options) part receives the connection settings from Program.cs.
-public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+public class AppDbContext(DbContextOptions<AppDbContext> options)
+    : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>(options)
 {
     // Each DbSet is one table.
     public DbSet<Goal> Goals => Set<Goal>();
@@ -15,6 +18,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     // Extra table rules
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
         // Save enums as text ("Fitness") instead of numbers (0), so the database is easy to read
         modelBuilder.Entity<Goal>().Property(g => g.Category).HasConversion<string>();
         modelBuilder.Entity<Goal>().Property(g => g.Status).HasConversion<string>();
@@ -85,6 +89,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                     "(\"GoalId\" IS NULL) <> (\"FutureTaskId\" IS NULL)"
                 )
             );
+        });
+        modelBuilder.Entity<AppUser>(entity =>
+        {
+            entity.Property(u => u.TimeZoneId).HasMaxLength(64);
+            entity.Property(u => u.DefaultHoursPerDay).HasPrecision(4, 2);
         });
     }
 }

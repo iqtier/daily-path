@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using DailyPath.Api.Configuration;
 using DailyPath.Api.Data;
+using DailyPath.Api.Models;
 using DailyPath.Api.Services.Gemini;
 using DailyPath.Api.Services.Planning;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +15,23 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default"))
 );
+builder.Services.AddAuthorization();
+builder
+    .Services.AddIdentityApiEndpoints<AppUser>(options =>
+    {
+        // Length over complexity, per NIST SP 800-63B.
+        options.Password.RequiredLength = 12;
+        options.Password.RequireNonAlphanumeric = false;
+        options.Password.RequireUppercase = false;
+        options.Password.RequireLowercase = false;
+        options.Password.RequireDigit = false;
 
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+
+        options.User.RequireUniqueEmail = true;
+    })
+    .AddEntityFrameworkStores<AppDbContext>();
 builder.Services.AddHttpClient<IGeminiClient, GeminiClient>(client =>
     client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/")
 );
@@ -42,7 +59,7 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
-
+app.MapGroup("/api/auth").MapIdentityApi<AppUser>();
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
