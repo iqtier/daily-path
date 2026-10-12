@@ -3,6 +3,7 @@
 @task1 =63ca16de-2818-4a38-8899-f454e4e7b6f2
 @task3 = b65b0810-00df-4d42-9e68-2866decf6d27
 @fitGoalId = 288612b4-242f-418e-8181-4360d7ce7776
+@auth = Bearer {{login.response.body.accessToken}}
 ### Add a goal
 POST {{baseUrl}}/api/goals
 Content-Type: application/json
@@ -16,6 +17,7 @@ Content-Type: application/json
 
 ### List goals
 GET {{baseUrl}}/api/goals
+   Authorization: Bearer {{login.response.body.accessToken}}
 
 ### Edit a goal
 PUT {{baseUrl}}/api/goals/{{goalId}}
@@ -27,6 +29,7 @@ Content-Type: application/json
   "category": "fitness",
   "status": "paused"
 }
+
 
 ### Delete a goal
 DELETE {{baseUrl}}/api/goals/{{goalId}}
@@ -75,7 +78,7 @@ Content-Type: application/json
 
 ### Future task: list
 GET {{baseUrl}}/api/future-tasks
-
+Authorization: {{auth}}
 ### Future task: mark done
 PUT {{baseUrl}}/api/future-tasks/{{taskId}}
 Content-Type: application/json

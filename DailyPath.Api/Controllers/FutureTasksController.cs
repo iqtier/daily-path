@@ -1,25 +1,28 @@
 using DailyPath.Api.Data;
 using DailyPath.Api.Dtos;
 using DailyPath.Api.Models;
+using DailyPath.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace DailyPath.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/future-tasks")]
-public class FutureTasksController(AppDbContext db) : ControllerBase
+public class FutureTasksController(AppDbContext db, ICurrentUser currentUser) : ControllerBase
 {
-    // Placeholder until authentication is added.
-    private static readonly Guid TempUserId = Guid.Parse("00000000-0000-0000-0000-000000000001");
     private static readonly Dictionary<Guid, int> NoTimeSpent = [];
 
     [HttpGet]
     public async Task<ActionResult<List<FutureTaskResponse>>> GetAll()
     {
-        var tasks = await db.FutureTasks.Where(t => t.UserId == TempUserId).ToListAsync();
+        var userId = currentUser.Id;
 
-        var secondsSpent = await db.GetSecondsSpentByFutureTaskAsync(TempUserId);
+        var tasks = await db.FutureTasks.Where(t => t.UserId == userId).ToListAsync();
+
+        var secondsSpent = await db.GetSecondsSpentByFutureTaskAsync(userId);
 
         // Pending tasks first by due date, then completed tasks, most recent first.
         var ordered = tasks
@@ -39,7 +42,7 @@ public class FutureTasksController(AppDbContext db) : ControllerBase
     [HttpPost]
     public async Task<ActionResult<FutureTaskResponse>> Create(FutureTaskRequest req)
     {
-        var task = new FutureTask { UserId = TempUserId };
+        var task = new FutureTask { UserId = currentUser.Id };
         ApplyRequest(task, req);
 
         db.FutureTasks.Add(task);
@@ -51,25 +54,25 @@ public class FutureTasksController(AppDbContext db) : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<FutureTaskResponse>> Update(Guid id, FutureTaskRequest req)
     {
-        var task = await db.FutureTasks.FirstOrDefaultAsync(t =>
-            t.Id == id && t.UserId == TempUserId
-        );
+        var userId = currentUser.Id;
+
+        var task = await db.FutureTasks.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
         if (task is null)
             return NotFound();
 
         ApplyRequest(task, req);
         await db.SaveChangesAsync();
 
-        var secondsSpent = await db.GetSecondsSpentByFutureTaskAsync(TempUserId);
+        var secondsSpent = await db.GetSecondsSpentByFutureTaskAsync(userId);
         return Ok(ToResponse(task, secondsSpent));
     }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        var task = await db.FutureTasks.FirstOrDefaultAsync(t =>
-            t.Id == id && t.UserId == TempUserId
-        );
+        var userId = currentUser.Id;
+
+        var task = await db.FutureTasks.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
         if (task is null)
             return NotFound();
 

@@ -1,28 +1,31 @@
 using DailyPath.Api.Data;
 using DailyPath.Api.Dtos;
 using DailyPath.Api.Models;
+using DailyPath.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace DailyPath.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/goals")]
-public class GoalsController(AppDbContext db) : ControllerBase
+public class GoalsController(AppDbContext db, ICurrentUser currentUser) : ControllerBase
 {
-    // Placeholder until authentication is added.
-    private static readonly Guid TempUserId = Guid.Parse("00000000-0000-0000-0000-000000000001");
     private static readonly Dictionary<Guid, int> NoCounts = [];
 
     [HttpGet]
     public async Task<ActionResult<List<GoalResponse>>> GetAll()
     {
+        var userId = currentUser.Id;
+
         var goals = await db
-            .Goals.Where(g => g.UserId == TempUserId)
+            .Goals.Where(g => g.UserId == userId)
             .OrderByDescending(g => g.CreatedAt)
             .ToListAsync();
 
-        var counts = await db.GetCompletedTodoCountByGoalAsync(TempUserId);
+        var counts = await db.GetCompletedTodoCountByGoalAsync(userId);
 
         return Ok(goals.Select(g => ToResponse(g, counts)).ToList());
     }
@@ -30,7 +33,9 @@ public class GoalsController(AppDbContext db) : ControllerBase
     [HttpGet("{id:guid}/history")]
     public async Task<ActionResult<List<GoalHistoryItem>>> GetHistory(Guid id)
     {
-        var goalExists = await db.Goals.AnyAsync(g => g.Id == id && g.UserId == TempUserId);
+        var userId = currentUser.Id;
+
+        var goalExists = await db.Goals.AnyAsync(g => g.Id == id && g.UserId == userId);
         if (!goalExists)
             return NotFound();
 
@@ -68,7 +73,7 @@ public class GoalsController(AppDbContext db) : ControllerBase
     {
         var goal = new Goal
         {
-            UserId = TempUserId,
+            UserId = currentUser.Id,
             Title = req.Title,
             Details = req.Details,
             Category = req.Category,
@@ -84,7 +89,9 @@ public class GoalsController(AppDbContext db) : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<GoalResponse>> Update(Guid id, GoalRequest req)
     {
-        var goal = await db.Goals.FirstOrDefaultAsync(g => g.Id == id && g.UserId == TempUserId);
+        var userId = currentUser.Id;
+
+        var goal = await db.Goals.FirstOrDefaultAsync(g => g.Id == id && g.UserId == userId);
         if (goal is null)
             return NotFound();
 
@@ -95,14 +102,16 @@ public class GoalsController(AppDbContext db) : ControllerBase
 
         await db.SaveChangesAsync();
 
-        var counts = await db.GetCompletedTodoCountByGoalAsync(TempUserId);
+        var counts = await db.GetCompletedTodoCountByGoalAsync(userId);
         return Ok(ToResponse(goal, counts));
     }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        var goal = await db.Goals.FirstOrDefaultAsync(g => g.Id == id && g.UserId == TempUserId);
+        var userId = currentUser.Id;
+
+        var goal = await db.Goals.FirstOrDefaultAsync(g => g.Id == id && g.UserId == userId);
         if (goal is null)
             return NotFound();
 

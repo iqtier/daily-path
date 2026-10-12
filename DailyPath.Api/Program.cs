@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using DailyPath.Api.Configuration;
 using DailyPath.Api.Data;
 using DailyPath.Api.Models;
+using DailyPath.Api.Services;
 using DailyPath.Api.Services.Gemini;
 using DailyPath.Api.Services.Planning;
 using Microsoft.EntityFrameworkCore;
@@ -51,7 +52,8 @@ builder
         )
     );
 builder.Services.AddScoped<DailyPlanService>();
-
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
