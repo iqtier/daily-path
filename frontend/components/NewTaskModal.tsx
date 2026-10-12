@@ -38,7 +38,7 @@ const TASK_TYPES: { value: FutureTaskType; label: string }[] = [
 ];
 
 const SIZE_OPTIONS: { value: TaskSize; label: string; desc: string }[] = [
-  { value: 'small', label: 'Small', desc: '~ 2 hrs' },
+  { value: 'small', label: 'Small', desc: '~2 hrs' },
   { value: 'medium', label: 'Medium', desc: '~5 hrs' },
   { value: 'large', label: 'Large', desc: '~10 hrs' },
   { value: 'huge', label: 'Huge', desc: '~20 hrs' },
