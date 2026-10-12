@@ -1,5 +1,5 @@
 'use client';
-
+import DaySetup from '@/components/DaySetup';
 import React, { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import TaskCard from '@/components/TaskCard';
@@ -183,6 +183,13 @@ export default function DashboardPage() {
         onOpenNewTask={() => setIsTaskModalOpen(true)}
        
       />
+      {plan && !plan.hasPlan ? (
+  <DaySetup
+    date={plan.date}
+    defaultHours={plan.defaultHoursAvailable}
+    onGenerated={setPlan}
+  />
+) : (
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 space-y-6">
         {/* Header with today's date and progress */}
@@ -299,7 +306,7 @@ export default function DashboardPage() {
         <div className="pt-4 pb-2 text-center text-xs text-stone-600">
           Focus on one step at a time. The rest of your path unfolds naturally.
         </div>
-      </main>
+      </main>)}
 
       {/* Modal Dialogs */}
       <NewGoalModal
