@@ -1,4 +1,5 @@
 using DailyPath.Api.Models;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -7,13 +8,15 @@ namespace DailyPath.Api.Data;
 
 // The (options) part receives the connection settings from Program.cs.
 public class AppDbContext(DbContextOptions<AppDbContext> options)
-    : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>(options)
+    : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>(options),
+        IDataProtectionKeyContext
 {
     // Each DbSet is one table.
     public DbSet<Goal> Goals => Set<Goal>();
     public DbSet<FutureTask> FutureTasks => Set<FutureTask>();
     public DbSet<DailyPlan> DailyPlans => Set<DailyPlan>();
     public DbSet<DailyTask> DailyTasks => Set<DailyTask>();
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     // Extra table rules
     protected override void OnModelCreating(ModelBuilder modelBuilder)

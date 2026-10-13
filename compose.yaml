@@ -1,0 +1,47 @@
+name: dailypath
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: dailypath
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dailypath"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: DailyPath.Api/Dockerfile
+    environment:
+      ConnectionStrings__Default: Host=db;Port=5432;Database=dailypath;Username=postgres;Password=${POSTGRES_PASSWORD}
+      Gemini__ApiKey: ${GEMINI_API_KEY:?Set GEMINI_API_KEY in .env}
+      Gemini__PrimaryModel: gemini-3.8-flash
+      Gemini__FallbackModel: gemini-3.5-flash-lite
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+    environment:
+      API_URL: http://api:8080
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
