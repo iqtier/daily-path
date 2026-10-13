@@ -6,6 +6,7 @@ using DailyPath.Api.Models;
 using DailyPath.Api.Services;
 using DailyPath.Api.Services.Gemini;
 using DailyPath.Api.Services.Planning;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,7 +18,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default"))
 );
-
+builder
+    .Services.AddDataProtection()
+    .SetApplicationName("DailyPath")
+    .PersistKeysToDbContext<AppDbContext>();
 builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>("database");
 builder.Services.AddAuthorization();
 builder
